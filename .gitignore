@@ -45,7 +45,7 @@ vcpkg_packages/
 .vs/
 .clangd/
 .cache/
-
+.claude
 # OS generated files
 Thumbs.db
 .DS_Store

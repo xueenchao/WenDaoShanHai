@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake --preset default)",
+      "Bash(cmake .. -G \"MinGW Makefiles\" -DCMAKE_TOOLCHAIN_FILE=\"C:/Users/Alex/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake\")",
+      "Bash(mingw32-make)"
+    ]
+  }
+}

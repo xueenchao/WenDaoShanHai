@@ -23,5 +23,18 @@
 #include "Font.h"
 #include "EventHandler.h"
 #include "GameLoop.h"
+#include "Scene.h"
+#include "ResourceManager.h"
+#include "CollisionSystem.h"
+#include "Camera2D.h"
+#include "Log.h"
+
+// UI系统
+#include "UI/UIElement.h"
+#include "UI/UIPanel.h"
+#include "UI/UILabel.h"
+#include "UI/UIButton.h"
+#include "UI/UIProgressBar.h"
+#include "UI/UIManager.h"
 
 #endif // CORE_H

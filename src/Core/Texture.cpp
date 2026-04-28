@@ -6,6 +6,7 @@
 
 #include "Texture.h"
 #include "Renderer.h"
+#include "Log.h"
 
 // ==================== 构造与析构 ====================
 
@@ -64,7 +65,7 @@ bool Texture::loadFromFile(Renderer& renderer, const std::string& filePath)
     // 获取渲染器的原生指针
     SDL_Renderer* rawRenderer = renderer.getRawRenderer();
     if (rawRenderer == nullptr) {
-        SDL_Log("Texture::loadFromFile 失败: 渲染器尚未创建");
+        LOG_ERROR("loadFromFile 失败: 渲染器尚未创建");
         return false;
     }
 
@@ -74,7 +75,7 @@ bool Texture::loadFromFile(Renderer& renderer, const std::string& filePath)
     mTexture = IMG_LoadTexture(rawRenderer, filePath.c_str());
 
     if (mTexture == nullptr) {
-        SDL_Log("Texture::loadFromFile 失败 (%s): %s", filePath.c_str(), SDL_GetError());
+        LOG_ERROR("loadFromFile 失败 (%s): %s", filePath.c_str(), SDL_GetError());
         return false;
     }
 
@@ -93,19 +94,19 @@ bool Texture::loadFromMemory(Renderer& renderer, const void* data, size_t dataSi
 
     SDL_Renderer* rawRenderer = renderer.getRawRenderer();
     if (rawRenderer == nullptr) {
-        SDL_Log("Texture::loadFromMemory 失败: 渲染器尚未创建");
+        LOG_ERROR("loadFromMemory 失败: 渲染器尚未创建");
         return false;
     }
 
     if (data == nullptr || dataSize == 0) {
-        SDL_Log("Texture::loadFromMemory 失败: 数据为空");
+        LOG_ERROR("loadFromMemory 失败: 数据为空");
         return false;
     }
 
     // 从内存数据创建 SDL_IOStream（类似文件流，但数据在内存中）
     SDL_IOStream* io = SDL_IOFromConstMem(data, dataSize);
     if (io == nullptr) {
-        SDL_Log("Texture::loadFromMemory 创建IOStream失败: %s", SDL_GetError());
+        LOG_ERROR("loadFromMemory 创建IOStream失败: %s", SDL_GetError());
         return false;
     }
 
@@ -114,7 +115,7 @@ bool Texture::loadFromMemory(Renderer& renderer, const void* data, size_t dataSi
     mTexture = IMG_LoadTexture_IO(rawRenderer, io, true);
 
     if (mTexture == nullptr) {
-        SDL_Log("Texture::loadFromMemory 加载失败: %s", SDL_GetError());
+        LOG_ERROR("loadFromMemory 加载失败: %s", SDL_GetError());
         return false;
     }
 
@@ -134,7 +135,7 @@ bool Texture::createBlank(Renderer& renderer, int width, int height,
 
     SDL_Renderer* rawRenderer = renderer.getRawRenderer();
     if (rawRenderer == nullptr) {
-        SDL_Log("Texture::createBlank 失败: 渲染器尚未创建");
+        LOG_ERROR("createBlank 失败: 渲染器尚未创建");
         return false;
     }
 
@@ -144,7 +145,7 @@ bool Texture::createBlank(Renderer& renderer, int width, int height,
                                  access, width, height);
 
     if (mTexture == nullptr) {
-        SDL_Log("Texture::createBlank 失败: %s", SDL_GetError());
+        LOG_ERROR("createBlank 失败: %s", SDL_GetError());
         return false;
     }
 
@@ -165,7 +166,7 @@ bool Texture::createFromSurface(Renderer& renderer, SDL_Surface* surface)
 
     SDL_Renderer* rawRenderer = renderer.getRawRenderer();
     if (rawRenderer == nullptr || surface == nullptr) {
-        SDL_Log("Texture::createFromSurface 失败: 渲染器或Surface无效");
+        LOG_ERROR("createFromSurface 失败: 渲染器或Surface无效");
         return false;
     }
 
@@ -174,7 +175,7 @@ bool Texture::createFromSurface(Renderer& renderer, SDL_Surface* surface)
     mTexture = SDL_CreateTextureFromSurface(rawRenderer, surface);
 
     if (mTexture == nullptr) {
-        SDL_Log("Texture::createFromSurface 失败: %s", SDL_GetError());
+        LOG_ERROR("createFromSurface 失败: %s", SDL_GetError());
         return false;
     }
 

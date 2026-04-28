@@ -5,6 +5,7 @@
  */
 
 #include "Audio.h"
+#include "Log.h"
 
 // ==================== 构造与析构 ====================
 
@@ -32,7 +33,7 @@ bool Audio::init()
 
     // 初始化 SDL3_mixer 库
     if (!MIX_Init()) {
-        SDL_Log("Audio::init MIX_Init 失败: %s", SDL_GetError());
+        LOG_ERROR("init MIX_Init 失败: %s", SDL_GetError());
         return false;
     }
 
@@ -47,7 +48,7 @@ bool Audio::init()
     mMixer = MIX_CreateMixer(&spec);
 
     if (mMixer == nullptr) {
-        SDL_Log("Audio::init 创建Mixer失败: %s", SDL_GetError());
+        LOG_ERROR("init 创建Mixer失败: %s", SDL_GetError());
         return false;
     }
 
@@ -84,7 +85,7 @@ bool Audio::isInitialized() const
 bool Audio::loadAudio(const std::string& name, const std::string& filePath, bool predecode)
 {
     if (mMixer == nullptr) {
-        SDL_Log("Audio::loadAudio 失败: 音频系统尚未初始化");
+        LOG_ERROR("loadAudio 失败: 音频系统尚未初始化");
         return false;
     }
 
@@ -98,7 +99,7 @@ bool Audio::loadAudio(const std::string& name, const std::string& filePath, bool
     MIX_Audio* audio = MIX_LoadAudio(mMixer, filePath.c_str(), predecode);
 
     if (audio == nullptr) {
-        SDL_Log("Audio::loadAudio 失败 (%s): %s", filePath.c_str(), SDL_GetError());
+        LOG_ERROR("loadAudio 失败 (%s): %s", filePath.c_str(), SDL_GetError());
         return false;
     }
 
@@ -111,12 +112,12 @@ bool Audio::loadAudioFromMemory(const std::string& name, const void* data, size_
                                 bool predecode)
 {
     if (mMixer == nullptr) {
-        SDL_Log("Audio::loadAudioFromMemory 失败: 音频系统尚未初始化");
+        LOG_ERROR("loadAudioFromMemory 失败: 音频系统尚未初始化");
         return false;
     }
 
     if (data == nullptr || dataSize == 0) {
-        SDL_Log("Audio::loadAudioFromMemory 失败: 数据为空");
+        LOG_ERROR("loadAudioFromMemory 失败: 数据为空");
         return false;
     }
 
@@ -127,7 +128,7 @@ bool Audio::loadAudioFromMemory(const std::string& name, const void* data, size_
     // 从内存创建 IOStream，然后通过 IOStream 加载音频
     SDL_IOStream* io = SDL_IOFromConstMem(data, dataSize);
     if (io == nullptr) {
-        SDL_Log("Audio::loadAudioFromMemory 创建IOStream失败: %s", SDL_GetError());
+        LOG_ERROR("loadAudioFromMemory 创建IOStream失败: %s", SDL_GetError());
         return false;
     }
 
@@ -135,7 +136,7 @@ bool Audio::loadAudioFromMemory(const std::string& name, const void* data, size_
     MIX_Audio* audio = MIX_LoadAudio_IO(mMixer, io, predecode, true);
 
     if (audio == nullptr) {
-        SDL_Log("Audio::loadAudioFromMemory 加载失败: %s", SDL_GetError());
+        LOG_ERROR("loadAudioFromMemory 加载失败: %s", SDL_GetError());
         return false;
     }
 
@@ -172,20 +173,20 @@ bool Audio::play(const std::string& name, int loops)
 
     MIX_Audio* audio = findAudio(name);
     if (audio == nullptr) {
-        SDL_Log("Audio::play 失败: 未找到音频 '%s'", name.c_str());
+        LOG_ERROR("play 失败: 未找到音频 '%s'", name.c_str());
         return false;
     }
 
     // 创建一条新的播放轨道
     MIX_Track* track = MIX_CreateTrack(mMixer);
     if (track == nullptr) {
-        SDL_Log("Audio::play 创建Track失败: %s", SDL_GetError());
+        LOG_ERROR("play 创建Track失败: %s", SDL_GetError());
         return false;
     }
 
     // 将音频数据绑定到轨道
     if (!MIX_SetTrackAudio(track, audio)) {
-        SDL_Log("Audio::play 绑定Audio到Track失败: %s", SDL_GetError());
+        LOG_ERROR("play 绑定Audio到Track失败: %s", SDL_GetError());
         MIX_DestroyTrack(track);
         return false;
     }
@@ -199,7 +200,7 @@ bool Audio::play(const std::string& name, int loops)
     // 开始播放
     // options 传 0（空属性集）表示使用默认播放选项
     if (!MIX_PlayTrack(track, 0)) {
-        SDL_Log("Audio::play 播放失败: %s", SDL_GetError());
+        LOG_ERROR("play 播放失败: %s", SDL_GetError());
         MIX_DestroyTrack(track);
         return false;
     }
@@ -220,7 +221,7 @@ bool Audio::playWithTag(const std::string& name, const std::string& tag, int loo
 
     MIX_Audio* audio = findAudio(name);
     if (audio == nullptr) {
-        SDL_Log("Audio::playWithTag 失败: 未找到音频 '%s'", name.c_str());
+        LOG_ERROR("playWithTag 失败: 未找到音频 '%s'", name.c_str());
         return false;
     }
 

@@ -5,6 +5,7 @@
  */
 
 #include "Window.h"
+#include "Log.h"
 
 // ==================== 构造与析构 ====================
 
@@ -40,7 +41,7 @@ bool Window::create()
 
     if (mWindow == nullptr) {
         // 创建失败，输出错误信息到 SDL 日志
-        SDL_Log("Window::create 失败: %s", SDL_GetError());
+        LOG_ERROR("create 失败: %s", SDL_GetError());
         return false;
     }
 

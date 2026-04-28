@@ -6,6 +6,7 @@
 
 #include "Font.h"
 #include "Renderer.h"
+#include "Log.h"
 
 // ==================== 构造与析构 ====================
 
@@ -61,7 +62,7 @@ bool Font::load(const std::string& filePath, float fontSize)
     mFont = TTF_OpenFont(filePath.c_str(), fontSize);
 
     if (mFont == nullptr) {
-        SDL_Log("Font::load 失败 (%s): %s", filePath.c_str(), SDL_GetError());
+        LOG_ERROR("load 失败 (%s): %s", filePath.c_str(), SDL_GetError());
         return false;
     }
 
@@ -74,14 +75,14 @@ bool Font::loadFromMemory(const void* data, size_t dataSize, float fontSize)
     destroy();
 
     if (data == nullptr || dataSize == 0) {
-        SDL_Log("Font::loadFromMemory 失败: 数据为空");
+        LOG_ERROR("loadFromMemory 失败: 数据为空");
         return false;
     }
 
     // 从内存数据创建 IOStream
     SDL_IOStream* io = SDL_IOFromConstMem(data, dataSize);
     if (io == nullptr) {
-        SDL_Log("Font::loadFromMemory 创建IOStream失败: %s", SDL_GetError());
+        LOG_ERROR("loadFromMemory 创建IOStream失败: %s", SDL_GetError());
         return false;
     }
 
@@ -90,7 +91,7 @@ bool Font::loadFromMemory(const void* data, size_t dataSize, float fontSize)
     mFont = TTF_OpenFontIO(io, true, fontSize);
 
     if (mFont == nullptr) {
-        SDL_Log("Font::loadFromMemory 加载失败: %s", SDL_GetError());
+        LOG_ERROR("loadFromMemory 加载失败: %s", SDL_GetError());
         return false;
     }
 
@@ -126,7 +127,7 @@ bool Font::setFontSize(float fontSize)
     }
     // SDL3_ttf 支持动态修改字体大小，无需重新加载字体文件
     if (!TTF_SetFontSize(mFont, fontSize)) {
-        SDL_Log("Font::setFontSize 失败: %s", SDL_GetError());
+        LOG_ERROR("setFontSize 失败: %s", SDL_GetError());
         return false;
     }
     mFontSize = fontSize;
@@ -161,7 +162,7 @@ SDL_Texture* Font::renderText(Renderer& renderer, const std::string& text,
                               RenderQuality quality)
 {
     if (mFont == nullptr) {
-        SDL_Log("Font::renderText 失败: 字体尚未加载");
+        LOG_ERROR("renderText 失败: 字体尚未加载");
         return nullptr;
     }
 
@@ -193,7 +194,7 @@ SDL_Texture* Font::renderText(Renderer& renderer, const std::string& text,
     }
 
     if (surface == nullptr) {
-        SDL_Log("Font::renderText 渲染失败: %s", SDL_GetError());
+        LOG_ERROR("renderText 渲染失败: %s", SDL_GetError());
         return nullptr;
     }
 
@@ -205,7 +206,7 @@ SDL_Texture* Font::renderText(Renderer& renderer, const std::string& text,
     SDL_DestroySurface(surface);
 
     if (texture == nullptr) {
-        SDL_Log("Font::renderText 创建纹理失败: %s", SDL_GetError());
+        LOG_ERROR("renderText 创建纹理失败: %s", SDL_GetError());
         return nullptr;
     }
 
@@ -229,7 +230,7 @@ SDL_Texture* Font::renderTextShaded(Renderer& renderer, const std::string& text,
         {fgR, fgG, fgB, 255}, {bgR, bgG, bgB, 255});
 
     if (surface == nullptr) {
-        SDL_Log("Font::renderTextShaded 渲染失败: %s", SDL_GetError());
+        LOG_ERROR("renderTextShaded 渲染失败: %s", SDL_GetError());
         return nullptr;
     }
 
@@ -238,7 +239,7 @@ SDL_Texture* Font::renderTextShaded(Renderer& renderer, const std::string& text,
     SDL_DestroySurface(surface);
 
     if (texture == nullptr) {
-        SDL_Log("Font::renderTextShaded 创建纹理失败: %s", SDL_GetError());
+        LOG_ERROR("renderTextShaded 创建纹理失败: %s", SDL_GetError());
         return nullptr;
     }
 
@@ -278,7 +279,7 @@ SDL_Texture* Font::renderTextWrapped(Renderer& renderer, const std::string& text
     }
 
     if (surface == nullptr) {
-        SDL_Log("Font::renderTextWrapped 渲染失败: %s", SDL_GetError());
+        LOG_ERROR("renderTextWrapped 渲染失败: %s", SDL_GetError());
         return nullptr;
     }
 
@@ -287,7 +288,7 @@ SDL_Texture* Font::renderTextWrapped(Renderer& renderer, const std::string& text
     SDL_DestroySurface(surface);
 
     if (texture == nullptr) {
-        SDL_Log("Font::renderTextWrapped 创建纹理失败: %s", SDL_GetError());
+        LOG_ERROR("renderTextWrapped 创建纹理失败: %s", SDL_GetError());
         return nullptr;
     }
 

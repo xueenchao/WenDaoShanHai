@@ -6,6 +6,7 @@
 
 #include "Renderer.h"
 #include "Window.h"
+#include "Log.h"
 
 // ==================== 构造与析构 ====================
 
@@ -34,7 +35,7 @@ bool Renderer::create()
     // 获取窗口的原生指针
     SDL_Window* rawWindow = mWindow.getRawWindow();
     if (rawWindow == nullptr) {
-        SDL_Log("Renderer::create 失败: 关联的窗口尚未创建");
+        LOG_ERROR("create 失败: 关联的窗口尚未创建");
         return false;
     }
 
@@ -44,7 +45,7 @@ bool Renderer::create()
     mRenderer = SDL_CreateRenderer(rawWindow, driver);
 
     if (mRenderer == nullptr) {
-        SDL_Log("Renderer::create 失败: %s", SDL_GetError());
+        LOG_ERROR("create 失败: %s", SDL_GetError());
         return false;
     }
 

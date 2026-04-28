@@ -3,7 +3,10 @@
     "allow": [
       "Bash(cmake --preset default)",
       "Bash(cmake .. -G \"MinGW Makefiles\" -DCMAKE_TOOLCHAIN_FILE=\"C:/Users/Alex/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake\")",
-      "Bash(mingw32-make)"
+      "Bash(mingw32-make)",
+      "Bash(cmake --build --preset default)",
+      "Bash(timeout 3 ./MyGame.exe)",
+      "Bash(exit 0)"
     ]
   }
 }

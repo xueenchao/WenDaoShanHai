@@ -23,10 +23,32 @@ set(CORE_SOURCES
     src/Core/Font.cpp
     src/Core/EventHandler.cpp
     src/Core/GameLoop.cpp
+    src/Core/Scene.cpp
+    src/Core/ResourceManager.cpp
+    src/Core/CollisionSystem.cpp
+    src/Core/Camera2D.cpp
+    src/Core/Log.cpp
+    # UI系统
+    src/Core/UI/UIElement.cpp
+    src/Core/UI/UIPanel.cpp
+    src/Core/UI/UILabel.cpp
+    src/Core/UI/UIButton.cpp
+    src/Core/UI/UIProgressBar.cpp
+    src/Core/UI/UIManager.cpp
+)
+
+# 游戏层源文件
+set(GAME_SOURCES
+    src/Game/GridMap.cpp
+    src/Game/CombatUnit.cpp
+    src/Game/Skill.cpp
+    src/Game/TurnManager.cpp
+    src/Game/CombatAI.cpp
+    src/Game/CombatScene.cpp
 )
 
 # 主程序
-add_executable(MyGame main.cpp ${CORE_SOURCES})
+add_executable(MyGame main.cpp ${CORE_SOURCES} ${GAME_SOURCES})
 
 # 添加核心层头文件搜索路径
 target_include_directories(MyGame PRIVATE ${CMAKE_SOURCE_DIR}/src)

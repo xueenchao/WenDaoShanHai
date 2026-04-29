@@ -119,6 +119,11 @@ void SceneManager::onUpdate(float deltaTime)
     }
 
     active->onUpdate(deltaTime);
+
+    if (mPendingPop) {
+        mPendingPop = false;
+        popScene();
+    }
 }
 
 void SceneManager::onRender(Renderer& renderer)

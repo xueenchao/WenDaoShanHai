@@ -2,9 +2,13 @@
  * CombatScene.cpp - 战斗场景实现
  *
  * BG3风格的回合制网格战棋战斗。
+ * 支持从大世界进入，战斗结束后返回大世界。
  */
 
 #include "CombatScene.h"
+#include "PlayerData.h"
+#include "DataManager.h"
+#include "Core/Scene.h"       // SceneManager
 #include "Core/Renderer.h"
 #include "Core/EventHandler.h"
 #include "Core/Font.h"
@@ -15,14 +19,18 @@
 #include "Core/Log.h"
 #include <SDL3/SDL.h>
 #include <cstdio>
+#include <cstdlib>
 
 // ==================== 构造 ====================
 
 CombatScene::CombatScene(EventHandler& eventHandler, Font* font,
-                         float viewportW, float viewportH)
+                         float viewportW, float viewportH,
+                         PlayerData* playerData, SceneManager* sceneMgr)
     : Scene("战斗场景")
     , mEventHandler(eventHandler)
     , mFont(font)
+    , mPlayerData(playerData)
+    , mSceneManager(sceneMgr)
     , mCamera(viewportW, viewportH)
     , mUIManager(font)
     , mGrid(8, 6, 64.0f)
@@ -37,12 +45,23 @@ void CombatScene::onEnter()
 {
     LOG_INFO("进入战斗场景");
 
+    mBattleEnded = false;
+    mBattleEndTimer = 0.0f;
+    mRewardsGiven = false;
+    mSelectedSkillIndex = -1;
+    mMoveRange.clear();
+    mAttackTargets.clear();
+
+    mLastActiveUnitId = 0;
+    mLastPhase = CombatPhase::PlayerTurn;
+    mLastSkillCount = -1;
+    mLastSelectedSkill = -1;
+
     setupBattlefield();
     setupPlayerTeam();
     setupEnemyTeam();
     initBattle();
 
-    // 设置摄像机：居中显示网格
     float gridW = mGrid.getWorldWidth();
     float gridH = mGrid.getWorldHeight();
     mCamera.setPosition(gridW * 0.5f, gridH * 0.5f);
@@ -55,40 +74,60 @@ void CombatScene::onExit()
 {
     LOG_INFO("离开战斗场景");
     mUIManager.clear();
+    mUnits.clear();
+    mUnitPtrs.clear();
+    mSkillButtons.clear();
 }
 
 // ==================== 更新 ====================
 
 void CombatScene::onUpdate(float deltaTime)
 {
-    // 更新摄像机
     mCamera.update(deltaTime);
 
-    // 更新鼠标悬停
     float mx, my;
     mEventHandler.getMousePosition(mx, my);
     mUIManager.updateHover(mx, my);
 
+    // 战斗结束状态
+    if (mBattleEnded) {
+        mBattleEndTimer += deltaTime;
+        // 2秒后或按空格返回
+        if (mBattleEndTimer > 2.0f
+            || mEventHandler.isKeyJustPressed(SDL_SCANCODE_SPACE)
+            || mEventHandler.isKeyJustPressed(SDL_SCANCODE_ESCAPE)
+            || mEventHandler.isKeyJustPressed(SDL_SCANCODE_RETURN)) {
+            if (mSceneManager) {
+                mSceneManager->requestPopScene();
+            }
+        }
+        updateHUD();
+        // 处理鼠标释放以触发"返回世界"按钮
+        if (mEventHandler.isMouseButtonJustReleased(SDL_BUTTON_LEFT)) {
+            mUIManager.handleMouseUp(mx, my);
+        }
+        return;
+    }
+
     // 检查战斗结束
     CombatPhase phase = mTurnManager.checkBattleEnd(mUnitPtrs);
     if (phase == CombatPhase::Victory || phase == CombatPhase::Defeat) {
-        // 按任意键退出（或自动）
-        if (mEventHandler.isKeyJustPressed(SDL_SCANCODE_SPACE)
-            || mEventHandler.isKeyJustPressed(SDL_SCANCODE_ESCAPE)) {
-            // 通过SceneManager弹出
+        mBattleEnded = true;
+        mBattleEndTimer = 0.0f;
+        if (phase == CombatPhase::Victory && !mRewardsGiven) {
+            grantVictoryRewards();
+            mRewardsGiven = true;
         }
         updateHUD();
         return;
     }
 
-    // 敌方回合：AI自动执行
     if (mTurnManager.mPhase == CombatPhase::EnemyTurn) {
         mAI.executeTurn(mGrid, mTurnManager, mUnitPtrs, deltaTime);
         updateHUD();
         return;
     }
 
-    // 玩家回合
     if (mTurnManager.mPhase == CombatPhase::PlayerTurn) {
         handlePlayerInput(deltaTime);
     }
@@ -100,7 +139,6 @@ void CombatScene::onUpdate(float deltaTime)
 
 void CombatScene::onRender(Renderer& renderer)
 {
-    // 背景
     renderer.setDrawColor(15, 30, 20, 255);
     renderer.clear();
 
@@ -109,68 +147,65 @@ void CombatScene::onRender(Renderer& renderer)
     renderAttackTargets(renderer);
     renderUnits(renderer);
     renderHUD(renderer);
-
-    // 鼠标坐标调试（可选）
-    if (mTurnManager.mPhase == CombatPhase::PlayerTurn) {
-        // 通过Camera转换用于定位点击
-        float mx, my;
-        mEventHandler.getMousePosition(mx, my);
-        auto world = mCamera.screenToWorld(mx, my);
-        int gx, gy;
-        mGrid.worldToGrid(world.x, world.y, gx, gy);
-    }
 }
 
 // ==================== 初始化 ====================
 
 void CombatScene::setupBattlefield()
 {
-    // Grid already created in constructor
     LOG_INFO("战场: %d x %d 网格, 每格 %.0fpx",
         mGrid.getCols(), mGrid.getRows(), mGrid.getTileSize());
 }
 
 void CombatScene::setupPlayerTeam()
 {
-    // 玩家角色
+    static uint32_t nextId = 100;
+
+    // 主角色来自PlayerData
     {
         auto unit = std::make_unique<CombatUnit>();
-        unit->mId = 1;
-        unit->mName = "青云修士";
-        unit->mHP = 120;
-        unit->mMaxHP = 120;
-        unit->mAttack = 20;
-        unit->mDefense = 8;
-        unit->mSpeed = 12;
-        unit->mElement = Element::Jin;  // 金属性
-        unit->mSpiritPower = 6;
-        unit->mMaxSpiritPower = 6;
-        unit->mMovementPoints = 4;
-        unit->mMaxMovementPoints = 4;
+        unit->mId = nextId++;
+        unit->mName = mPlayerData ? mPlayerData->name : "修士";
+        unit->mHP = mPlayerData ? mPlayerData->hp : 120;
+        unit->mMaxHP = mPlayerData ? mPlayerData->maxHP : 120;
+        unit->mAttack = mPlayerData ? mPlayerData->attack : 20;
+        unit->mDefense = mPlayerData ? mPlayerData->defense : 8;
+        unit->mSpeed = mPlayerData ? mPlayerData->speed : 12;
+        unit->mElement = mPlayerData ? mPlayerData->element : Element::Jin;
+        unit->mSpiritPower = mPlayerData ? mPlayerData->spiritPower : 6;
+        unit->mMaxSpiritPower = mPlayerData ? mPlayerData->maxSpiritPower : 6;
+        unit->mMovementPoints = mPlayerData ? mPlayerData->movementPoints : 4;
+        unit->mMaxMovementPoints = mPlayerData ? mPlayerData->maxMovementPoints : 4;
         unit->mGridX = 1;
         unit->mGridY = 2;
         unit->mTeam = 0;
 
-        unit->mSkills.push_back(Skill::makeSwordSlash());
-        unit->mSkills.push_back(Skill::makeFireball());
-        unit->mSkills.push_back(Skill::makeIceShard());
+        if (mPlayerData && !mPlayerData->skills.empty()) {
+            unit->mSkills = mPlayerData->skills;
+        } else {
+            // 从DataManager加载默认技能
+            for (auto& skillId : DataManager::getInstance().getStartingSkills()) {
+                const Skill* sk = DataManager::getInstance().getSkill(skillId);
+                if (sk) unit->mSkills.push_back(*sk);
+            }
+        }
 
         mGrid.setOccupier(unit->mGridX, unit->mGridY, unit->mId);
         mUnitPtrs.push_back(unit.get());
         mUnits.push_back(std::move(unit));
     }
 
-    // 灵兽（玩家方宠物）
+    // 灵狐（宠物）
     {
         auto unit = std::make_unique<CombatUnit>();
-        unit->mId = 2;
+        unit->mId = nextId++;
         unit->mName = "灵狐";
         unit->mHP = 80;
         unit->mMaxHP = 80;
         unit->mAttack = 12;
         unit->mDefense = 4;
         unit->mSpeed = 10;
-        unit->mElement = Element::Mu;  // 木属性
+        unit->mElement = Element::Mu;
         unit->mSpiritPower = 4;
         unit->mMaxSpiritPower = 4;
         unit->mMovementPoints = 5;
@@ -179,7 +214,8 @@ void CombatScene::setupPlayerTeam()
         unit->mGridY = 4;
         unit->mTeam = 0;
 
-        unit->mSkills.push_back(Skill::makeVineWhip());
+        const Skill* vineSkill = DataManager::getInstance().getSkill("vine_whip");
+        if (vineSkill) unit->mSkills.push_back(*vineSkill);
 
         mGrid.setOccupier(unit->mGridX, unit->mGridY, unit->mId);
         mUnitPtrs.push_back(unit.get());
@@ -189,78 +225,46 @@ void CombatScene::setupPlayerTeam()
 
 void CombatScene::setupEnemyTeam()
 {
-    // 妖兽1 — 火属性
-    {
+    static uint32_t nextId = 200;
+
+    auto& dm = DataManager::getInstance();
+    const auto& enemyIds = dm.getEnemyIds();
+    int poolSize = static_cast<int>(enemyIds.size());
+    if (poolSize == 0) return;
+
+    int level = mPlayerData ? mPlayerData->level : 1;
+
+    // 随机选3个不同的敌人
+    int idx1 = rand() % poolSize;
+    int idx2 = (idx1 + 1 + rand() % (poolSize - 1)) % poolSize;
+    int idx3 = (idx1 + 2 + rand() % (poolSize - 2)) % poolSize;
+
+    const char* picks[3] = {enemyIds[idx1].c_str(), enemyIds[idx2].c_str(), enemyIds[idx3].c_str()};
+    int positions[3][2] = {{6,1}, {6,3}, {5,5}};
+
+    for (int i = 0; i < 3; ++i) {
+        const EnemyTemplateDef* et = dm.getEnemyTemplate(picks[i]);
+        if (!et) continue;
+
         auto unit = std::make_unique<CombatUnit>();
-        unit->mId = 10;
-        unit->mName = "炎妖";
-        unit->mHP = 80;
-        unit->mMaxHP = 80;
-        unit->mAttack = 15;
-        unit->mDefense = 4;
-        unit->mSpeed = 8;
-        unit->mElement = Element::Huo;
-        unit->mSpiritPower = 4;
-        unit->mMaxSpiritPower = 4;
-        unit->mMovementPoints = 3;
-        unit->mMaxMovementPoints = 3;
-        unit->mGridX = 6;
-        unit->mGridY = 1;
+        unit->mId = nextId++;
+        unit->mName = et->name;
+        unit->mHP = et->hp + (level - 1) * 5;
+        unit->mMaxHP = unit->mHP;
+        unit->mAttack = et->attack + (level - 1) * 1;
+        unit->mDefense = et->defense;
+        unit->mSpeed = et->speed;
+        unit->mElement = et->element;
+        unit->mSpiritPower = et->spirit;
+        unit->mMaxSpiritPower = et->spirit;
+        unit->mMovementPoints = et->moves;
+        unit->mMaxMovementPoints = et->moves;
+        unit->mGridX = positions[i][0];
+        unit->mGridY = positions[i][1];
         unit->mTeam = 1;
 
-        unit->mSkills.push_back(Skill::makeFireball());
-
-        mGrid.setOccupier(unit->mGridX, unit->mGridY, unit->mId);
-        mUnitPtrs.push_back(unit.get());
-        mUnits.push_back(std::move(unit));
-    }
-
-    // 妖兽2 — 土属性
-    {
-        auto unit = std::make_unique<CombatUnit>();
-        unit->mId = 11;
-        unit->mName = "岩甲兽";
-        unit->mHP = 120;
-        unit->mMaxHP = 120;
-        unit->mAttack = 10;
-        unit->mDefense = 12;
-        unit->mSpeed = 5;
-        unit->mElement = Element::Tu;
-        unit->mSpiritPower = 4;
-        unit->mMaxSpiritPower = 4;
-        unit->mMovementPoints = 2;
-        unit->mMaxMovementPoints = 2;
-        unit->mGridX = 6;
-        unit->mGridY = 3;
-        unit->mTeam = 1;
-
-        unit->mSkills.push_back(Skill::makeRockSmash());
-
-        mGrid.setOccupier(unit->mGridX, unit->mGridY, unit->mId);
-        mUnitPtrs.push_back(unit.get());
-        mUnits.push_back(std::move(unit));
-    }
-
-    // 妖兽3 — 水属性
-    {
-        auto unit = std::make_unique<CombatUnit>();
-        unit->mId = 12;
-        unit->mName = "寒蛟";
-        unit->mHP = 90;
-        unit->mMaxHP = 90;
-        unit->mAttack = 13;
-        unit->mDefense = 5;
-        unit->mSpeed = 9;
-        unit->mElement = Element::Shui;
-        unit->mSpiritPower = 3;
-        unit->mMaxSpiritPower = 3;
-        unit->mMovementPoints = 3;
-        unit->mMaxMovementPoints = 3;
-        unit->mGridX = 5;
-        unit->mGridY = 5;
-        unit->mTeam = 1;
-
-        unit->mSkills.push_back(Skill::makeIceShard());
+        const Skill* sk = dm.getSkill(et->skillId);
+        if (sk) unit->mSkills.push_back(*sk);
 
         mGrid.setOccupier(unit->mGridX, unit->mGridY, unit->mId);
         mUnitPtrs.push_back(unit.get());
@@ -279,6 +283,42 @@ void CombatScene::initBattle()
     }
 }
 
+// ==================== 胜利奖励 ====================
+
+void CombatScene::grantVictoryRewards()
+{
+    if (!mPlayerData) return;
+
+    // XP奖励
+    int xpGain = 20 + rand() % 21; // 20-40
+    mPlayerData->xp += xpGain;
+    LOG_INFO("战斗胜利！获得 %d 经验值 (总计: %d)", xpGain, mPlayerData->xp);
+
+    // 继承玩家单位剩余的HP/SP
+    for (auto& unit : mUnits) {
+        if (unit->mTeam == 0 && unit->isAlive()
+            && unit->mName == mPlayerData->name) {
+            mPlayerData->hp = unit->mHP;
+            mPlayerData->spiritPower = unit->mSpiritPower;
+            break;
+        }
+    }
+
+    // 60%几率掉落物品（从DataManager获取物品数据）
+    if (rand() % 100 < 60) {
+        const char* lootIds[] = {"heal_potion", "spirit_pill", "iron_sword", "leather_armor", "jade_ring"};
+        int roll = rand() % 5;
+        Item loot = DataManager::getInstance().createItem(lootIds[roll]);
+        loot.quantity = 1;
+        bool added = mPlayerData->addItem(loot);
+        if (added) {
+            LOG_INFO("获得战利品: %s", loot.name.c_str());
+        } else {
+            LOG_INFO("背包已满，无法获得: %s", loot.name.c_str());
+        }
+    }
+}
+
 // ==================== 玩家输入处理 ====================
 
 void CombatScene::handlePlayerInput(float /*deltaTime*/)
@@ -286,19 +326,15 @@ void CombatScene::handlePlayerInput(float /*deltaTime*/)
     float mx, my;
     mEventHandler.getMousePosition(mx, my);
 
-    // 更新悬停
     mUIManager.updateHover(mx, my);
 
-    // 鼠标左键按下
     if (mEventHandler.isMouseButtonJustPressed(SDL_BUTTON_LEFT)) {
-        // 先检查是否点击了UI
         UIElement* uiHit = mUIManager.getElementAt(mx, my);
         if (uiHit != nullptr) {
             mUIManager.handleMouseDown(mx, my);
             return;
         }
 
-        // 点击在游戏区域 — 转换到网格坐标
         auto world = mCamera.screenToWorld(mx, my);
         int gx, gy;
         mGrid.worldToGrid(world.x, world.y, gx, gy);
@@ -306,18 +342,15 @@ void CombatScene::handlePlayerInput(float /*deltaTime*/)
         if (mGrid.isInBounds(gx, gy)) {
             handleGridClick(gx, gy);
         } else {
-            // 点击了空地，取消技能选择
             mSelectedSkillIndex = -1;
             mAttackTargets.clear();
         }
     }
 
-    // 鼠标释放
     if (mEventHandler.isMouseButtonJustReleased(SDL_BUTTON_LEFT)) {
         mUIManager.handleMouseUp(mx, my);
     }
 
-    // 右键取消
     if (mEventHandler.isMouseButtonJustPressed(SDL_BUTTON_RIGHT)) {
         mSelectedSkillIndex = -1;
         mAttackTargets.clear();
@@ -329,13 +362,11 @@ void CombatScene::handleGridClick(int gx, int gy)
     CombatUnit* active = mTurnManager.getActiveUnit();
     if (active == nullptr || active->mTeam != 0) return;
 
-    // 如果选了技能，尝试攻击目标格的单位
     if (mSelectedSkillIndex >= 0
         && mSelectedSkillIndex < static_cast<int>(active->mSkills.size())) {
 
         Skill& skill = active->mSkills[mSelectedSkillIndex];
 
-        // 检查目标格是否在有效目标列表内
         for (auto& t : mAttackTargets) {
             if (t.first == gx && t.second == gy) {
                 CombatUnit* target = getUnitAt(gx, gy);
@@ -345,7 +376,6 @@ void CombatScene::handleGridClick(int gx, int gy)
                     mSelectedSkillIndex = -1;
                     mAttackTargets.clear();
 
-                    // 检查战斗结束
                     mTurnManager.checkBattleEnd(mUnitPtrs);
                     updateHUD();
                     return;
@@ -353,13 +383,11 @@ void CombatScene::handleGridClick(int gx, int gy)
             }
         }
 
-        // 点击了无效目标，取消技能选择
         mSelectedSkillIndex = -1;
         mAttackTargets.clear();
         return;
     }
 
-    // 没有选中技能 — 尝试移动
     if (!mTurnManager.mHasMoved) {
         for (auto& cell : mMoveRange) {
             if (cell.first == gx && cell.second == gy) {
@@ -381,8 +409,6 @@ void CombatScene::handleGridClick(int gx, int gy)
             }
         }
     }
-
-    // 点击了自己的其他单位 — 暂不切换（未来可扩展）
 }
 
 void CombatScene::handleSkillSelect(int skillIndex)
@@ -405,7 +431,6 @@ void CombatScene::handleSkillSelect(int skillIndex)
 
     mSelectedSkillIndex = skillIndex;
 
-    // 计算可攻击的目标格子（在技能范围内的敌人位置）
     mAttackTargets.clear();
     auto tilesInRange = mGrid.getTilesInRange(active->mGridX, active->mGridY, skill.mRange);
 
@@ -433,7 +458,6 @@ void CombatScene::executeAttack(CombatUnit& attacker, CombatUnit& target, Skill&
 
     if (!target.isAlive()) {
         LOG_INFO("%s 被击败！", target.mName.c_str());
-        // 清空格子
         mGrid.setOccupier(target.mGridX, target.mGridY, 0);
     }
 }
@@ -446,7 +470,6 @@ void CombatScene::renderGrid(Renderer& renderer)
     int cols = mGrid.getCols();
     int rows = mGrid.getRows();
 
-    // 绘制每个格子的背景
     for (int gy = 0; gy < rows; ++gy) {
         for (int gx = 0; gx < cols; ++gx) {
             float wx, wy;
@@ -455,14 +478,12 @@ void CombatScene::renderGrid(Renderer& renderer)
             float sw = tileSize * mCamera.getZoom();
             float sh = tileSize * mCamera.getZoom();
 
-            // 棋盘格颜色
             bool dark = (gx + gy) % 2 == 0;
             renderer.setDrawColor(dark ? 25 : 35, dark ? 45 : 55, dark ? 20 : 28, 255);
             renderer.fillRect(screen.x, screen.y, sw, sh);
         }
     }
 
-    // 网格线
     renderer.setDrawColor(60, 80, 55, 120);
 
     for (int gx = 0; gx <= cols; ++gx) {
@@ -528,7 +549,6 @@ void CombatScene::renderUnits(Renderer& renderer)
         mGrid.gridToWorld(unit->mGridX, unit->mGridY, wx, wy);
         auto screen = mCamera.worldToScreen(wx, wy);
 
-        // 单位颜色：玩家方绿色，敌方红色
         if (unit->mTeam == 0) {
             renderer.setDrawColor(50, 200, 80, 255);
         } else {
@@ -537,7 +557,6 @@ void CombatScene::renderUnits(Renderer& renderer)
 
         renderer.fillRect(screen.x + offset, screen.y + offset, unitSize, unitSize);
 
-        // 当前行动单位金边高亮
         CombatUnit* active = mTurnManager.getActiveUnit();
         if (active != nullptr && active->mId == unit->mId) {
             renderer.setDrawColor(255, 215, 0, 255);
@@ -548,7 +567,6 @@ void CombatScene::renderUnits(Renderer& renderer)
         }
         renderer.drawRect(screen.x + offset, screen.y + offset, unitSize, unitSize);
 
-        // 单位名字（缩小显示）
         if (mFont != nullptr) {
             const char* name = unit->mName.c_str();
             SDL_Texture* tex = mFont->renderText(renderer, name, 240, 240, 240,
@@ -563,7 +581,6 @@ void CombatScene::renderUnits(Renderer& renderer)
             }
         }
 
-        // HP条（在单位下方）
         float hpRatio = static_cast<float>(unit->mHP) / static_cast<float>(unit->mMaxHP);
         float barW = unitSize;
         float barH = 4.0f;
@@ -598,7 +615,6 @@ void CombatScene::buildHUD()
         panel->mHeight = 80.0f;
         panel->mBgR = 0; panel->mBgG = 0; panel->mBgB = 0; panel->mBgA = 200;
 
-        // 单位名称标签
         auto nameLabel = std::make_unique<UILabel>();
         nameLabel->mX = 15.0f;
         nameLabel->mY = 8.0f;
@@ -607,7 +623,6 @@ void CombatScene::buildHUD()
         mUnitNameLabel = nameLabel.get();
         panel->addChild(std::move(nameLabel));
 
-        // HP进度条
         auto hpBar = std::make_unique<UIProgressBar>();
         hpBar->mX = 15.0f;
         hpBar->mY = 30.0f;
@@ -619,7 +634,6 @@ void CombatScene::buildHUD()
         mHPBar = hpBar.get();
         panel->addChild(std::move(hpBar));
 
-        // 灵力进度条
         auto spBar = std::make_unique<UIProgressBar>();
         spBar->mX = 15.0f;
         spBar->mY = 52.0f;
@@ -631,7 +645,6 @@ void CombatScene::buildHUD()
         mSPBar = spBar.get();
         panel->addChild(std::move(spBar));
 
-        // 回合/阶段标签
         auto turnLabel = std::make_unique<UILabel>();
         turnLabel->mX = mViewportW - 250.0f;
         turnLabel->mY = 10.0f;
@@ -644,7 +657,7 @@ void CombatScene::buildHUD()
         mUIManager.addElement(std::move(panel));
     }
 
-    // 技能面板（右侧）
+    // 技能面板
     {
         auto panel = std::make_unique<UIPanel>();
         panel->mX = mViewportW - 220.0f;
@@ -653,7 +666,6 @@ void CombatScene::buildHUD()
         panel->mHeight = 400.0f;
         panel->mBgR = 20; panel->mBgG = 20; panel->mBgB = 30; panel->mBgA = 210;
 
-        // 标题
         auto title = std::make_unique<UILabel>();
         title->mX = 10.0f;
         title->mY = 10.0f;
@@ -685,12 +697,12 @@ void CombatScene::buildHUD()
         endBtn->mHoverBgR = 120; endBtn->mHoverBgG = 50; endBtn->mHoverBgB = 40;
         endBtn->mPressBgR = 40; endBtn->mPressBgG = 20; endBtn->mPressBgB = 20;
         endBtn->mOnClick = [this]() {
+            if (mBattleEnded) return;
             mSelectedSkillIndex = -1;
             mMoveRange.clear();
             mAttackTargets.clear();
             mTurnManager.endTurn();
 
-            // 如果新回合是玩家，重新计算移动范围
             CombatUnit* next = mTurnManager.getActiveUnit();
             if (next != nullptr && next->mTeam == 0) {
                 mMoveRange = mGrid.getMoveRange(next->mGridX, next->mGridY,
@@ -698,6 +710,23 @@ void CombatScene::buildHUD()
             }
         };
         bar->addChild(std::move(endBtn));
+
+        // 返回世界按钮（仅在战斗结束时显示）
+        auto returnBtn = std::make_unique<UIButton>();
+        returnBtn->mX = mViewportW - 310.0f;
+        returnBtn->mY = 5.0f;
+        returnBtn->mWidth = 140.0f;
+        returnBtn->mHeight = 32.0f;
+        returnBtn->mText = "返回世界";
+        returnBtn->mNormalBgR = 30; returnBtn->mNormalBgG = 60; returnBtn->mNormalBgB = 30;
+        returnBtn->mHoverBgR = 50; returnBtn->mHoverBgG = 120; returnBtn->mHoverBgB = 40;
+        returnBtn->mPressBgR = 20; returnBtn->mPressBgG = 40; returnBtn->mPressBgB = 20;
+        returnBtn->mOnClick = [this]() {
+            if (mSceneManager) {
+                mSceneManager->requestPopScene();
+            }
+        };
+        bar->addChild(std::move(returnBtn));
 
         mBottomBar = bar.get();
         mUIManager.addElement(std::move(bar));
@@ -708,7 +737,6 @@ void CombatScene::updateHUD()
 {
     CombatUnit* active = mTurnManager.getActiveUnit();
 
-    // 更新顶部面板
     if (mUnitNameLabel != nullptr) {
         if (active != nullptr) {
             mUnitNameLabel->mText = active->mName
@@ -754,67 +782,97 @@ void CombatScene::updateHUD()
         }
     }
 
-    // 重建技能按钮
+    // 技能按钮：仅在必要时重建，避免每帧销毁导致UIManager悬空指针
     if (mSkillPanel != nullptr) {
-        // 清空旧按钮（保留标题）
-        while (mSkillPanel->mChildren.size() > 1) {
-            mSkillPanel->mChildren.pop_back();
-        }
-        mSkillButtons.clear();
+        uint32_t curUnitId = (active != nullptr) ? active->mId : 0;
+        int curSkillCount = (active != nullptr) ? static_cast<int>(active->mSkills.size()) : 0;
 
-        if (active != nullptr && active->mTeam == 0
-            && mTurnManager.mPhase == CombatPhase::PlayerTurn) {
+        bool needRebuild =
+            (curUnitId != mLastActiveUnitId) ||
+            (mTurnManager.mPhase != mLastPhase) ||
+            (curSkillCount != mLastSkillCount);
 
-            float btnY = 40.0f;
-            for (int i = 0; i < static_cast<int>(active->mSkills.size()); ++i) {
-                Skill& skill = active->mSkills[i];
+        if (needRebuild) {
+            // 安全清除：先重置UIManager交互状态避免悬空指针
+            mUIManager.resetInteractionState();
 
-                auto btn = std::make_unique<UIButton>();
-                btn->mX = 10.0f;
-                btn->mY = btnY;
-                btn->mWidth = 180.0f;
-                btn->mHeight = 48.0f;
+            while (mSkillPanel->mChildren.size() > 1) {
+                mSkillPanel->mChildren.pop_back();
+            }
+            mSkillButtons.clear();
 
-                // 技能信息
-                char buf[128];
-                const char* cdStr = skill.isReady() ? "" : " [CD]";
-                snprintf(buf, sizeof(buf), "%s%s\n灵力:%d 伤害:%d 范围:%d",
-                    skill.mName.c_str(), cdStr,
-                    skill.mSpiritCost, skill.mBaseDamage, skill.mRange);
-                btn->mText = buf;
+            mLastActiveUnitId = curUnitId;
+            mLastPhase = mTurnManager.mPhase;
+            mLastSkillCount = curSkillCount;
+            mLastSelectedSkill = -1;  // 强制刷新选中状态
 
-                // 不可用技能显示为灰色
-                bool canUse = active->canAffordSkill(skill);
-                btn->mNormalBgR = canUse ? 40 : 30;
-                btn->mNormalBgG = canUse ? 50 : 30;
-                btn->mNormalBgB = canUse ? 70 : 30;
-                btn->mHoverBgR = canUse ? 60 : 35;
-                btn->mHoverBgG = canUse ? 70 : 35;
-                btn->mHoverBgB = canUse ? 100 : 35;
-                btn->mEnabled = canUse;
+            if (active != nullptr && active->mTeam == 0
+                && mTurnManager.mPhase == CombatPhase::PlayerTurn
+                && !mBattleEnded) {
 
-                // 当前选中的技能高亮
+                float btnY = 40.0f;
+                for (int i = 0; i < curSkillCount; ++i) {
+                    Skill& skill = active->mSkills[i];
+
+                    auto btn = std::make_unique<UIButton>();
+                    btn->mX = 10.0f;
+                    btn->mY = btnY;
+                    btn->mWidth = 180.0f;
+                    btn->mHeight = 48.0f;
+
+                    char buf[128];
+                    const char* cdStr = skill.isReady() ? "" : " [CD]";
+                    snprintf(buf, sizeof(buf), "%s%s\n灵力:%d 伤害:%d 范围:%d",
+                        skill.mName.c_str(), cdStr,
+                        skill.mSpiritCost, skill.mBaseDamage, skill.mRange);
+                    btn->mText = buf;
+
+                    bool canUse = active->canAffordSkill(skill);
+                    btn->mNormalBgR = canUse ? 40 : 30;
+                    btn->mNormalBgG = canUse ? 50 : 30;
+                    btn->mNormalBgB = canUse ? 70 : 30;
+                    btn->mHoverBgR = canUse ? 60 : 35;
+                    btn->mHoverBgG = canUse ? 70 : 35;
+                    btn->mHoverBgB = canUse ? 100 : 35;
+                    btn->mEnabled = canUse;
+
+                    if (i == mSelectedSkillIndex) {
+                        btn->mNormalBgR = 100;
+                        btn->mNormalBgG = 80;
+                        btn->mNormalBgB = 30;
+                    }
+
+                    int skillIdx = i;
+                    btn->mOnClick = [this, skillIdx]() {
+                        if (mSelectedSkillIndex == skillIdx) {
+                            mSelectedSkillIndex = -1;
+                            mAttackTargets.clear();
+                        } else {
+                            handleSkillSelect(skillIdx);
+                        }
+                    };
+
+                    mSkillButtons.push_back(btn.get());
+                    mSkillPanel->addChild(std::move(btn));
+                    btnY += 55.0f;
+                }
+            }
+        } else if (mSelectedSkillIndex != mLastSelectedSkill) {
+            // 仅更新选中高亮，不重建按钮
+            for (int i = 0; i < static_cast<int>(mSkillButtons.size()); ++i) {
+                auto* btn = mSkillButtons[i];
+                bool canUse = (active != nullptr) ? active->canAffordSkill(active->mSkills[i]) : false;
                 if (i == mSelectedSkillIndex) {
                     btn->mNormalBgR = 100;
                     btn->mNormalBgG = 80;
                     btn->mNormalBgB = 30;
+                } else {
+                    btn->mNormalBgR = canUse ? 40 : 30;
+                    btn->mNormalBgG = canUse ? 50 : 30;
+                    btn->mNormalBgB = canUse ? 70 : 30;
                 }
-
-                int skillIdx = i;
-                btn->mOnClick = [this, skillIdx]() {
-                    // 切换：如果已选中则取消
-                    if (mSelectedSkillIndex == skillIdx) {
-                        mSelectedSkillIndex = -1;
-                        mAttackTargets.clear();
-                    } else {
-                        handleSkillSelect(skillIdx);
-                    }
-                };
-
-                mSkillButtons.push_back(btn.get());
-                mSkillPanel->addChild(std::move(btn));
-                btnY += 55.0f;
             }
+            mLastSelectedSkill = mSelectedSkillIndex;
         }
     }
 }

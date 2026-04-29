@@ -65,6 +65,15 @@ public:
      */
     void clear();
 
+    /**
+     * 重置交互状态（悬停/按下），用于安全销毁UI元素前调用
+     */
+    void resetInteractionState()
+    {
+        mHoveredElement = nullptr;
+        mPressedElement = nullptr;
+    }
+
 private:
     Renderer* mRenderer;
     Font* mFont;

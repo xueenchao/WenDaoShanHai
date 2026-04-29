@@ -37,14 +37,6 @@ struct Skill {
     int mElementId = 0;        // 对应 Element enum 值
 
     bool isReady() const { return mCurrentCooldown <= 0; }
-
-    // ==================== 预设技能工厂 ====================
-
-    static Skill makeFireball();
-    static Skill makeIceShard();
-    static Skill makeSwordSlash();
-    static Skill makeRockSmash();
-    static Skill makeVineWhip();
 };
 
 #endif // SKILL_H

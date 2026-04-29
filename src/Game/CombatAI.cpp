@@ -94,8 +94,9 @@ bool CombatAI::executeTurn(GridMap& grid, TurnManager& turnMgr,
             return false;
         }
 
-        // 沿着路径移动到身法允许的最远位置
-        int steps = std::min(turnMgr.mRemainingMoves, static_cast<int>(path.size()));
+        // 沿着路径移动到身法允许的最远位置（不踏上敌人所在格）
+        int maxSteps = static_cast<int>(path.size()) - 1;
+        int steps = std::min(turnMgr.mRemainingMoves, maxSteps);
         if (steps > 0) {
             mTargetGX = path[steps - 1].first;
             mTargetGY = path[steps - 1].second;

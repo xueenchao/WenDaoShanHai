@@ -1,0 +1,57 @@
+[
+  {
+    "id": "fireball",
+    "name": "火球术",
+    "desc": "释放火球攻击单体敌人",
+    "spiritCost": 2,
+    "range": 4,
+    "areaType": "single",
+    "baseDamage": 30,
+    "cooldown": 1,
+    "element": "huo"
+  },
+  {
+    "id": "ice_shard",
+    "name": "冰锥术",
+    "desc": "凝聚冰锥攻击单体敌人",
+    "spiritCost": 2,
+    "range": 3,
+    "areaType": "single",
+    "baseDamage": 25,
+    "cooldown": 0,
+    "element": "shui"
+  },
+  {
+    "id": "sword_slash",
+    "name": "剑气斩",
+    "desc": "剑气横扫十字范围",
+    "spiritCost": 3,
+    "range": 1,
+    "areaType": "cross",
+    "baseDamage": 35,
+    "cooldown": 2,
+    "element": "jin"
+  },
+  {
+    "id": "rock_smash",
+    "name": "岩崩",
+    "desc": "召唤岩石攻击3x3区域",
+    "spiritCost": 4,
+    "range": 3,
+    "areaType": "square",
+    "baseDamage": 20,
+    "cooldown": 3,
+    "element": "tu"
+  },
+  {
+    "id": "vine_whip",
+    "name": "藤鞭",
+    "desc": "木系单体攻击",
+    "spiritCost": 1,
+    "range": 2,
+    "areaType": "single",
+    "baseDamage": 18,
+    "cooldown": 0,
+    "element": "mu"
+  }
+]

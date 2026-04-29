@@ -1,0 +1,10 @@
+[
+  {"id":"fire_demon","name":"炎妖","element":"huo","hp":80,"attack":15,"defense":4,"speed":8,"spirit":4,"moves":3,"skill":"fireball"},
+  {"id":"rock_beast","name":"岩甲兽","element":"tu","hp":120,"attack":10,"defense":12,"speed":5,"spirit":4,"moves":2,"skill":"rock_smash"},
+  {"id":"cold_dragon","name":"寒蛟","element":"shui","hp":90,"attack":13,"defense":5,"speed":9,"spirit":3,"moves":3,"skill":"ice_shard"},
+  {"id":"gold_guard","name":"金甲卫","element":"jin","hp":100,"attack":18,"defense":8,"speed":7,"spirit":4,"moves":3,"skill":"sword_slash"},
+  {"id":"vine_demon","name":"藤蔓妖","element":"mu","hp":70,"attack":12,"defense":3,"speed":11,"spirit":5,"moves":4,"skill":"vine_whip"},
+  {"id":"stone_demon","name":"石魔","element":"tu","hp":140,"attack":8,"defense":15,"speed":4,"spirit":3,"moves":2,"skill":"rock_smash"},
+  {"id":"fire_spirit","name":"火精","element":"huo","hp":60,"attack":20,"defense":2,"speed":10,"spirit":6,"moves":4,"skill":"fireball"},
+  {"id":"ice_spirit","name":"冰灵","element":"shui","hp":75,"attack":14,"defense":4,"speed":8,"spirit":5,"moves":3,"skill":"ice_shard"}
+]

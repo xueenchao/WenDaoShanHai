@@ -1,0 +1,38 @@
+{
+  "window": {"title": "问道·山海", "width": 1280, "height": 720},
+  "viewport": {"width": 1280, "height": 720},
+  "fps": 60,
+  "font": {
+    "primary": "C:/Windows/Fonts/msyh.ttc",
+    "fallback": "C:/Windows/Fonts/simsun.ttc",
+    "size": 14.0
+  },
+  "world": {"cols": 40, "rows": 30, "tileSize": 64.0},
+  "combat": {"cols": 8, "rows": 6, "tileSize": 64.0, "cameraZoom": 1.5},
+  "player": {
+    "speed": 200.0,
+    "size": 32.0,
+    "defaultName": "青云修士",
+    "defaultLevel": 1,
+    "defaultHP": 120,
+    "defaultAttack": 20,
+    "defaultDefense": 8,
+    "defaultSpeed": 12,
+    "defaultSpiritPower": 6,
+    "defaultMovementPoints": 4,
+    "element": "jin",
+    "xpPerLevel": 100
+  },
+  "encounter": {
+    "maxMarkers": 5,
+    "spawnMargin": 3,
+    "minDistanceFromPlayer": 200.0,
+    "minSpacing": 100.0,
+    "triggerDistance": 52.0,
+    "respawnDelay": 3.0
+  },
+  "ai": {
+    "moveDelay": 0.6,
+    "attackDelay": 0.8
+  }
+}

@@ -43,10 +43,16 @@ Source and execution charset are forced to UTF-8 (`-finput-charset=UTF-8 -fexec-
 ### Layered Module Design
 
 ```
-main.cpp (application layer — callbacks wired to GameLoop)
+main.cpp (application layer — owns global objects, callbacks wired to GameLoop)
   │
-├─ Game layer (src/Game/) — combat, AI, skills (gameplay logic)
-│   └─ CombatScene ─ integrates GridMap, TurnManager, CombatAI, Camera2D, UIManager
+├─ Game layer (src/Game/) — scenes, combat, world, player state (gameplay logic)
+│   ├─ DataManager — singleton, loads all JSON data at startup, provides O(1) lookup by ID
+│   ├─ Scenes (Scene subclasses on the stack):
+│   │   MainMenuScene → BigWorldScene ↔ CombatScene (push on encounter, pop on end)
+│   ├─ PlayerData — persistent state shared across scenes via pointer (stats/skills/inventory/equipment)
+│   ├─ Item — pure data struct (id/name/desc/type/stats/effects), loaded from JSON by DataManager
+│   ├─ WorldMap — 40×30 tile terrain map (Grass/Water/Mountain/Forest/Path/Sand), walkable checks
+│   └─ Combat — GridMap, CombatUnit, Skill (pure data), TurnManager, CombatAI
 │
 ├─ Core modules (src/Core/) — engine subsystems wrapping SDL3
 │   ├─ Window ←─ Renderer ←─ Texture
@@ -58,6 +64,7 @@ main.cpp (application layer — callbacks wired to GameLoop)
 │   ├─ EventHandler ←─ GameLoop
 │   ├─ Audio (independent — Mixer/Audio/Track + tag-based grouping)
 │   ├─ Log (standalone — singleton, 5-level macros, console+file dual output)
+│   ├─ JsonLoader — cJSON file I/O utility (readFileToString + cJSON_Parse)
 │   └─ UI/ (widget framework)
 │       ├─ UIElement (base: tree hierarchy, hit-test, hover tracking)
 │       ├─ UIPanel, UILabel, UIButton (3-state), UIProgressBar
@@ -83,8 +90,9 @@ GameLoop (loop controller — calls OnInit → pollEvents → OnUpdate → OnRen
 | `Font` | `TTF_Font*` | Three quality levels (Solid/Shaded/Blended); renderText returns `SDL_Texture*` (caller must destroy); measureText for layout |
 | `EventHandler` | Keyboard/mouse state maps | Dual-frame state (current + previous) for isKeyJustPressed/isKeyJustReleased; must call update() each frame end |
 | `GameLoop` | Callback functions | std::function callbacks; deltaTime capped at 0.1s; FPS tracking |
+| `JsonLoader` | cJSON | `loadJsonFile(path)` reads file + parses with cJSON; `freeJson()` wraps cJSON_Delete. Returns nullptr on error with LOG_ERROR detail. |
 | `Log` | (none — pure C++) | Singleton with LOG_DEBUG/INFO/WARNING/ERROR/FATAL macros; auto-captures `__FILE__`/`__LINE__`/`__FUNCTION__`; console + file output; `setMinLevel()` filtering; thread-safe via `std::mutex` |
-| `Scene` | Scene stack | pushScene/popScene/switchScene; onEnter/onExit/onUpdate/onRender lifecycle |
+| `Scene` | Scene stack | pushScene/popScene/switchScene; onEnter/onExit/onUpdate/onRender lifecycle; `requestPopScene()` defers pop to after onUpdate() to avoid use-after-free |
 | `ResourceManager` | `ResourceCache<T>` | Template cache keyed by string name; loadTexture/loadFont/loadAudio with fallback |
 | `Camera2D` | Viewport transform | worldToScreen/screenToWorld; exponential-decay smooth follow; bounds clamping; zoom 0.1–10 |
 | `CollisionSystem` | Spatial hash grid | AABB overlap + layer-mask filtering; checkMove for movement validation; swap-and-pop removal |
@@ -100,13 +108,35 @@ Screen-space widget hierarchy. Coordinates are pixels, independent of Camera2D.
 - **`UIProgressBar`** — dual-layer bar (background + foreground); ratio from `mValue/mMaxValue`; optional centered text label
 - **`UIManager`** — owns root element, exposes `getElementAt(mx, my)` / `updateHover()` / `handleMouseDown()` / `handleMouseUp()` for aggregated-input model (no direct SDL_Event processing); `setRenderer()` called before `render()` each frame
 
-### Game Layer — Combat System (`src/Game/`)
+### Game Layer (`src/Game/`)
 
-BG3-style turn-based tactical grid combat. See `《问道·山海》.md` §2 for full design spec.
+Full game flow: `MainMenuScene → BigWorldScene → (push) CombatScene → (pop) BigWorldScene`
+
+**Scenes:**
+- **`MainMenuScene`** — Start menu with direct rendering (no UIManager). Title + "开始游戏"/"退出游戏" buttons with manual hit-testing. Sets flags that `main.cpp` reads to transition.
+- **`BigWorldScene`** — Overworld exploration. Free movement (WASD/arrow keys) with per-axis collision detection against `WorldMap` walkability. Camera2D follows player. Encounter markers trigger `pushScene(CombatScene)`. Inventory overlay (B key) and character panel overlay (C key) built with UIManager—toggled via `mVisible` on the backdrop element.
+- **`CombatScene`** — Same as below, now accepts `PlayerData*` + `SceneManager*` for world integration. On victory: grants XP/loot to PlayerData. On battle end: calls `mSceneManager->requestPopScene()` to return to BigWorldScene.
+
+**Data-driven architecture:**
+- **`DataManager`** — Singleton (`DataManager::getInstance()`). `loadAll()` loads all JSON files from `data/` at startup (called in `main.cpp onInit()` before SDL init). Provides `getSkill(id)`, `getItem(id)`, `createItem(id)`, `getEnemyTemplate(id)`, `getTerrainDef(id)`, `getConfig()`. Also stores starting inventory/skills loaded from `items.json`. Enum parsing helpers (`parseElement`, `parseAreaType`, etc.) use first-character switch statements.
+- **`data/skills.json`** — 5 skills (fireball, ice_shard, sword_slash, rock_smash, vine_whip)
+- **`data/items.json`** — 7 items + `startingInventory` array + `startingSkills` array
+- **`data/enemies.json`** — 8 enemy templates with element-to-skill mapping
+- **`data/config.json`** — Window, viewport, FPS, font, world/combat grid dimensions, player defaults, encounter params, AI timing
+- **`data/terrains.json`** — 6 terrain types with RGB colors and walkability
+
+**Persistent state:**
+- **`PlayerData`** — Plain struct (no .cpp). Name, level, XP, HP/SP/Attack/Defense/Speed, `Element`, `std::vector<Skill>`, `std::vector<Item>` inventory (max 20), `Item*` equipment pointers (weapon/armor/accessory, nullptr = empty). Helper methods: `addItem()`, `removeItem()`, `equipItem()`, `unequipSlot()`, `heal()`, `restoreSP()`, `getEffectiveAttack()` etc. (apply equipment bonuses).
+- **`Item`** — `ItemType` enum (Consumable/Equipment/Material/Key), `EquipSlot` enum (Weapon/Armor/Accessory). `Item` struct is pure data (id/name/desc/type/quantity/maxStack/equip stats/consumable effects). All item templates are defined in JSON and loaded by DataManager — no hardcoded factory functions.
+
+**World:**
+- **`WorldMap`** — 40×30 tile grid, 64px tiles (2560×1920 world). `Terrain` enum (Grass/Water/Mountain/Forest/Path/Sand). `Tile` struct: terrain + walkable. `generateDemoMap()` creates hand-crafted terrain. Same coordinate transform API as GridMap (`worldToGrid`, `gridToWorld`, `gridToWorldCenter`).
+
+**Combat (see `《问道·山海》.md` §2 for full design spec):**
 
 - **`GridMap`** — square grid (8×6 default, 64px tiles). BFS `getMoveRange(gx, gy, movePoints)` for movement preview; BFS `getPath(from, to)` for AI pathfinding; `getTilesInRange()` for skill targeting. Occupancy tracked per cell via unit ID.
 - **`CombatUnit`** — stats (HP/Attack/Defense/Speed), dual resources (灵力 spirit power / 身法 movement points), five-element type (`Element::Jin/Mu/Shui/Huo/Tu`), `std::vector<Skill>`, team ID (0=player, 1=enemy). `calculateDamage()` applies element counter (克制 ×1.3, 被克 ×0.7) and defense reduction.
-- **`Skill`** — data struct: spirit cost, range (Manhattan), area type (`Single`/`Cross`/`Square`), base damage, cooldown. Five preset factory methods (`makeFireball`, `makeSwordSlash`, etc.).
+- **`Skill`** — Pure data struct: spirit cost, range (Manhattan), area type (`Single`/`Cross`/`Square`), base damage, cooldown, element. All skill definitions loaded from `data/skills.json` by DataManager. `isReady()` checks cooldown. No factory methods — skills are copied from DataManager templates.
 - **`TurnManager`** — initiative queue sorted by Speed desc. Phases: `PlayerTurn → EnemyTurn → Animating → Victory/Defeat`. `endTurn()` reduces cooldowns, restores 2 spirit power, refills movement points.
 - **`CombatAI`** — stepped decision: find nearest player unit → BFS path toward it → if in range, use highest-damage affordable skill → end turn. Small delay timer between steps for readability.
 - **`CombatScene`** — owns all of the above + `Camera2D` + `UIManager`. Player input: left-click blue cells to move → click skill button in right panel → click red-highlighted enemy to attack → click "结束回合". Enemy turns auto-execute via AI.
@@ -146,4 +176,31 @@ This project uses **SDL3**, not SDL2. Common traps when writing code:
 5. **洞府探秘** — Multi-level dungeons, five-element terrain, sects, crafting
 6. **大道万千** — Endgame, weapon spirits, seasonal content
 
-The design document calls for data-driven architecture: all equipment, beasts, skills, and affixes should be JSON-defined via cJSON, not hardcoded. The affix system follows `AffixEffect` base class + factory pattern with event-driven triggers (`ON_KILL`, `ON_ATTACK`, etc.).
+Phase 1 (data-driven architecture) is complete — all skills, items, enemies, terrain, and config are loaded from JSON via `DataManager`. The upcoming affix system follows `AffixEffect` base class + factory pattern with event-driven triggers (`ON_KILL`, `ON_ATTACK`, etc.).
+
+## Known Pitfalls
+
+### Destroying UI elements that UIManager holds references to
+
+`UIManager` stores raw pointers `mPressedElement` and `mHoveredElement`. If you destroy a UI element (e.g., via `pop_back()` on children) while a mouse button is down on it, the next call to `handleMouseUp()` dereferences a dangling pointer → **crash**.
+
+**The pattern to avoid** (this caused a real crash in CombatScene):
+```cpp
+// BAD: destroy and recreate buttons every frame
+void updateHUD() {
+    while (mSkillPanel->mChildren.size() > 1)
+        mSkillPanel->mChildren.pop_back();  // destroys buttons — mPressedElement dangles!
+    mSkillButtons.clear();
+    // ... recreate buttons ...
+}
+```
+
+**The fix**: Use change-tracking to only rebuild when structural properties change (active unit ID, phase, skill count). Before destroying, call `mUIManager.resetInteractionState()` to null out the raw pointers. For cosmetic updates (highlight color), mutate existing buttons in-place without destroying them.
+
+### Scene self-removal during onUpdate
+
+A scene must never call `popScene()` on itself during its own `onUpdate()` — it would destroy `this` while still executing. Use `SceneManager::requestPopScene()` instead, which sets a flag. `SceneManager::onUpdate()` checks this flag after `active->onUpdate()` returns and performs the actual pop safely.
+
+### Overlay visibility requires explicit update calls
+
+When toggling overlay state (`mInventoryOpen`/`mCharPanelOpen`), you must call `updateInventoryDisplay()`/`updateCharPanelDisplay()` to sync the backdrop element's `mVisible` flag. Setting the bool alone leaves the UI rendering stale.

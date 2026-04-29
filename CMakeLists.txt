@@ -28,6 +28,7 @@ set(CORE_SOURCES
     src/Core/CollisionSystem.cpp
     src/Core/Camera2D.cpp
     src/Core/Log.cpp
+    src/Core/JsonLoader.cpp
     # UI系统
     src/Core/UI/UIElement.cpp
     src/Core/UI/UIPanel.cpp
@@ -45,6 +46,10 @@ set(GAME_SOURCES
     src/Game/TurnManager.cpp
     src/Game/CombatAI.cpp
     src/Game/CombatScene.cpp
+    src/Game/MainMenuScene.cpp
+    src/Game/BigWorldScene.cpp
+    src/Game/WorldMap.cpp
+    src/Game/DataManager.cpp
 )
 
 # 主程序

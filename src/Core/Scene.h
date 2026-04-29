@@ -135,10 +135,16 @@ public:
      */
     bool isQuitRequested() const { return mQuitRequested; }
 
+    /**
+     * 请求延迟弹出当前场景（安全，在onUpdate返回后执行）
+     */
+    void requestPopScene() { mPendingPop = true; }
+
 private:
     EventHandler& mEventHandler;
     std::vector<std::unique_ptr<Scene>> mSceneStack;
     bool mQuitRequested;
+    bool mPendingPop = false;
 };
 
 #endif // SCENE_H

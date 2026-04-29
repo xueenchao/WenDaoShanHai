@@ -1,0 +1,18 @@
+{
+  "items": [
+    {"id":"heal_potion","name":"回血丹","desc":"恢复30点生命值","type":"consumable","maxStack":10,"healHP":30},
+    {"id":"spirit_pill","name":"聚灵丹","desc":"恢复3点灵力","type":"consumable","maxStack":10,"healSP":3},
+    {"id":"wood_sword","name":"桃木剑","desc":"普通桃木剑，攻击+5","type":"equipment","equipSlot":"weapon","atkBonus":5},
+    {"id":"cloth_armor","name":"布衣","desc":"粗布护甲，防御+3","type":"equipment","equipSlot":"armor","defBonus":3},
+    {"id":"iron_sword","name":"铁剑","desc":"精铁长剑，攻击+10","type":"equipment","equipSlot":"weapon","atkBonus":10},
+    {"id":"jade_ring","name":"玉指环","desc":"蕴含灵气的指环，生命+20","type":"equipment","equipSlot":"accessory","hpBonus":20},
+    {"id":"leather_armor","name":"皮甲","desc":"兽皮轻甲，防御+6","type":"equipment","equipSlot":"armor","defBonus":6}
+  ],
+  "startingInventory": [
+    {"id":"heal_potion","quantity":2},
+    {"id":"spirit_pill","quantity":1},
+    {"id":"wood_sword","quantity":1},
+    {"id":"cloth_armor","quantity":1}
+  ],
+  "startingSkills": ["sword_slash", "fireball", "ice_shard"]
+}

@@ -1,0 +1,8 @@
+[
+  {"id":"grass","name":"草地","walkable":true,"color":[34,139,34]},
+  {"id":"water","name":"水域","walkable":false,"color":[30,80,180]},
+  {"id":"mountain","name":"山地","walkable":false,"color":[100,100,110]},
+  {"id":"forest","name":"森林","walkable":true,"color":[20,100,30]},
+  {"id":"path","name":"道路","walkable":true,"color":[180,160,120]},
+  {"id":"sand","name":"沙地","walkable":true,"color":[210,190,140]}
+]

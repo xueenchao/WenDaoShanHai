@@ -6,7 +6,11 @@
       "Bash(mingw32-make)",
       "Bash(cmake --build --preset default)",
       "Bash(timeout 3 ./MyGame.exe)",
-      "Bash(exit 0)"
+      "Bash(exit 0)",
+      "Bash(timeout 60 ./build/MyGame.exe)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(timeout 30 ./build/MyGame.exe)",
+      "Bash(echo \"===EXIT: $?===\")"
     ]
   }
 }

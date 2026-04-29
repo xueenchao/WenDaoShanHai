@@ -112,6 +112,13 @@ void CombatScene::onUpdate(float deltaTime)
     // 检查战斗结束
     CombatPhase phase = mTurnManager.checkBattleEnd(mUnitPtrs);
     if (phase == CombatPhase::Victory || phase == CombatPhase::Defeat) {
+        LOG_INFO("战斗结束! 阶段=%s 玩家单位数=%zu 敌方单位数=%zu",
+            phase == CombatPhase::Victory ? "胜利" : "失败",
+            mUnitPtrs.size(), mUnits.size());
+        for (auto& u : mUnits) {
+            LOG_INFO("  单位: %s HP=%d/%d team=%d alive=%d",
+                u->mName.c_str(), u->mHP, u->mMaxHP, u->mTeam, u->isAlive());
+        }
         mBattleEnded = true;
         mBattleEndTimer = 0.0f;
         if (phase == CombatPhase::Victory && !mRewardsGiven) {

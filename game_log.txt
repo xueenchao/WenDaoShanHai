@@ -1,0 +1,33 @@
+[19:33:45] [INFO] [DataManager.cpp:86] loadAll: ===== 加载游戏数据 =====
+[19:33:45] [INFO] [JsonLoader.cpp:59] loadJsonFile: 已加载JSON: data/skills.json (1116字节)
+[19:33:45] [INFO] [JsonLoader.cpp:59] loadJsonFile: 已加载JSON: data/items.json (1163字节)
+[19:33:45] [INFO] [JsonLoader.cpp:59] loadJsonFile: 已加载JSON: data/enemies.json (1126字节)
+[19:33:45] [INFO] [JsonLoader.cpp:59] loadJsonFile: 已加载JSON: data/config.json (941字节)
+[19:33:45] [INFO] [JsonLoader.cpp:59] loadJsonFile: 已加载JSON: data/terrains.json (433字节)
+[19:33:45] [INFO] [DataManager.cpp:94] loadAll: ===== 数据加载完成: 5技能 7物品 8敌人 6地形 =====
+[19:33:45] [INFO] [MainMenuScene.cpp:23] onEnter: 进入主菜单
+[19:33:45] [INFO] [Scene.cpp:39] pushScene: 压入场景: 主菜单 (栈深度: 1)
+[19:33:45] [INFO] [main.cpp:81] onInit: ===== 问道·山海 =====
+[19:33:47] [INFO] [MainMenuScene.cpp:65] onUpdate: 点击开始游戏
+[19:33:47] [INFO] [MainMenuScene.cpp:45] onExit: 离开主菜单
+[19:33:47] [INFO] [BigWorldScene.cpp:54] onEnter: 进入大世界
+[19:33:47] [INFO] [BigWorldScene.cpp:306] spawnEncounterMarkers: 生成 5 个遭遇点
+[19:33:47] [INFO] [Scene.cpp:88] switchScene: 切换场景: 主菜单 -> 大世界
+[19:33:52] [INFO] [BigWorldScene.cpp:257] checkEncounter: 遭遇敌人！
+[19:33:52] [INFO] [BigWorldScene.cpp:82] onExit: 离开大世界
+[19:33:52] [INFO] [CombatScene.cpp:46] onEnter: 进入战斗场景
+[19:33:52] [INFO] [CombatScene.cpp:156] setupBattlefield: 战场: 8 x 6 网格, 每格 64px
+[19:33:52] [INFO] [Scene.cpp:39] pushScene: 压入场景: 战斗场景 (栈深度: 2)
+[19:33:53] [INFO] [CombatScene.cpp:405] handleGridClick: 青云修士 移动到 (2, 2)
+[19:33:56] [INFO] [CombatAI.cpp:146] executeTurn: [战斗] 藤蔓妖 对 灵狐 使用 藤鞭，造成 28 点伤害
+[19:34:00] [INFO] [CombatScene.cpp:457] executeAttack: [战斗] 灵狐 对 藤蔓妖 使用 藤鞭，造成 28 伤害！
+[19:34:04] [INFO] [CombatAI.cpp:146] executeTurn: [战斗] 岩甲兽 对 青云修士 使用 岩崩，造成 26 点伤害
+[19:34:05] [INFO] [TurnManager.cpp:96] endTurn: ===== 第 2 回合 =====
+[19:34:11] [INFO] [CombatScene.cpp:75] onExit: 离开战斗场景
+[19:34:11] [INFO] [Scene.cpp:56] popScene: 弹出场景: 战斗场景 (栈深度: 1)
+[19:34:11] [INFO] [BigWorldScene.cpp:54] onEnter: 进入大世界
+[19:34:11] [INFO] [BigWorldScene.cpp:306] spawnEncounterMarkers: 生成 5 个遭遇点
+[19:34:11] [INFO] [Scene.cpp:62] popScene: 恢复场景: 大世界
+[19:34:18] [INFO] [BigWorldScene.cpp:82] onExit: 离开大世界
+[19:34:18] [INFO] [Scene.cpp:145] onCleanup: 所有场景已清理
+[19:34:18] [INFO] [main.cpp:133] onCleanup: ===== 游戏结束 =====

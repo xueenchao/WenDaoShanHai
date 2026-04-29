@@ -7,6 +7,8 @@
 #include <SDL3/SDL.h>
 #include <cstdlib>
 #include <ctime>
+#include <windows.h>
+#include <dbghelp.h>
 
 #include "Core/Core.h"
 #include "Game/PlayerData.h"
@@ -133,10 +135,32 @@ void onCleanup()
     LOG_INFO("===== 游戏结束 =====");
 }
 
+static LONG WINAPI crashHandler(EXCEPTION_POINTERS* ep)
+{
+    const char* type = "Unknown";
+    switch (ep->ExceptionRecord->ExceptionCode) {
+    case EXCEPTION_ACCESS_VIOLATION: type = "ACCESS_VIOLATION"; break;
+    case EXCEPTION_STACK_OVERFLOW: type = "STACK_OVERFLOW"; break;
+    case EXCEPTION_INT_DIVIDE_BY_ZERO: type = "DIVIDE_BY_ZERO"; break;
+    }
+    LOG_FATAL("崩溃! 类型=%s 代码=0x%08X 地址=%p",
+        type, ep->ExceptionRecord->ExceptionCode,
+        ep->ExceptionRecord->ExceptionAddress);
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        int flags = (int)ep->ExceptionRecord->ExceptionInformation[0];
+        void* addr = (void*)ep->ExceptionRecord->ExceptionInformation[1];
+        LOG_FATAL("访问违规: %s 地址 %p", flags ? "写入" : "读取", addr);
+    }
+    fflush(stdout);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
+
+    SetUnhandledExceptionFilter(crashHandler);
 
     gGameLoop.setOnInit(onInit);
     gGameLoop.setOnUpdate(onUpdate);

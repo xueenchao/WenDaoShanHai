@@ -3,9 +3,11 @@
  */
 
 #include "DataManager.h"
-#include "Skill.h"
-#include "Item.h"
-#include "WorldMap.h"
+#include "../Core/Skill.h"
+#include "../Core/Item.h"
+#include "../Core/LifeboundTreasure.h"
+#include "../Core/Talisman.h"
+#include "../World/WorldMap.h"
 #include "Core/JsonLoader.h"
 #include "Core/Log.h"
 #include <cjson/cJSON.h>
@@ -90,9 +92,13 @@ bool DataManager::loadAll()
     if (!loadEnemies("data/enemies.json")) return false;
     if (!loadConfig("data/config.json"))   return false;
     if (!loadTerrains("data/terrains.json")) return false;
+    if (!loadLifeboundTreasures("data/lifebound_treasures.json")) return false;
+    if (!loadTalismans("data/talismans.json")) return false;
+    if (!loadSects("data/sects.json")) return false;
 
-    LOG_INFO("===== 数据加载完成: %zu技能 %zu物品 %zu敌人 %zu地形 =====",
-        mSkillMap.size(), mItemMap.size(), mEnemyMap.size(), mTerrainDefs.size());
+    LOG_INFO("===== 数据加载完成: %zu技能 %zu物品 %zu敌人 %zu地形 %zu法宝 %zu符箓 %zu门派 =====",
+        mSkillMap.size(), mItemMap.size(), mEnemyMap.size(), mTerrainDefs.size(),
+        mLifeboundMap.size(), mTalismanMap.size(), mSectMap.size());
     return true;
 }
 
@@ -427,6 +433,186 @@ bool DataManager::loadTerrains(const char* path)
     return true;
 }
 
+// ==================== 本命法宝加载 ====================
+
+bool DataManager::loadLifeboundTreasures(const char* path)
+{
+    cJSON* root = JsonLoader::loadJsonFile(path);
+    if (root == nullptr) return false;
+
+    int count = cJSON_GetArraySize(root);
+    for (int i = 0; i < count; ++i) {
+        cJSON* obj = cJSON_GetArrayItem(root, i);
+        if (obj == nullptr) continue;
+
+        LifeboundTreasure lt;
+
+        cJSON* idNode = cJSON_GetObjectItem(obj, "id");
+        lt.id = idNode ? cJSON_GetStringValue(idNode) : "";
+
+        cJSON* nameNode = cJSON_GetObjectItem(obj, "name");
+        lt.name = nameNode ? cJSON_GetStringValue(nameNode) : "";
+
+        cJSON* descNode = cJSON_GetObjectItem(obj, "desc");
+        lt.desc = descNode ? cJSON_GetStringValue(descNode) : "";
+
+        cJSON* elemNode = cJSON_GetObjectItem(obj, "element");
+        lt.element = parseElement(elemNode ? cJSON_GetStringValue(elemNode) : "jin");
+
+        cJSON* atkNode = cJSON_GetObjectItem(obj, "atkBonus");
+        lt.atkBonus = atkNode ? static_cast<int>(cJSON_GetNumberValue(atkNode)) : 0;
+
+        cJSON* defNode = cJSON_GetObjectItem(obj, "defBonus");
+        lt.defBonus = defNode ? static_cast<int>(cJSON_GetNumberValue(defNode)) : 0;
+
+        cJSON* hpNode = cJSON_GetObjectItem(obj, "hpBonus");
+        lt.hpBonus = hpNode ? static_cast<int>(cJSON_GetNumberValue(hpNode)) : 0;
+
+        cJSON* spdNode = cJSON_GetObjectItem(obj, "speedBonus");
+        lt.speedBonus = spdNode ? static_cast<int>(cJSON_GetNumberValue(spdNode)) : 0;
+
+        lt.level = 1;
+        lt.maxLevel = 10;
+
+        if (!lt.id.empty()) {
+            mLifeboundMap[lt.id] = lt;
+        }
+    }
+
+    JsonLoader::freeJson(root);
+    return true;
+}
+
+// ==================== 符箓加载 ====================
+
+static TalismanType parseTalismanType(const char* str)
+{
+    if (str == nullptr) return TalismanType::Attack;
+    switch (str[0]) {
+        case 'a': return TalismanType::Attack;   // attack
+        case 'd': return TalismanType::Defense;   // defense
+        case 's': return (str[1] == 'u') ? TalismanType::Summon : TalismanType::Support;
+        default:  return TalismanType::Attack;
+    }
+}
+
+bool DataManager::loadTalismans(const char* path)
+{
+    cJSON* root = JsonLoader::loadJsonFile(path);
+    if (root == nullptr) return false;
+
+    int count = cJSON_GetArraySize(root);
+    for (int i = 0; i < count; ++i) {
+        cJSON* obj = cJSON_GetArrayItem(root, i);
+        if (obj == nullptr) continue;
+
+        Talisman t;
+
+        cJSON* idNode = cJSON_GetObjectItem(obj, "id");
+        t.id = idNode ? cJSON_GetStringValue(idNode) : "";
+
+        cJSON* nameNode = cJSON_GetObjectItem(obj, "name");
+        t.name = nameNode ? cJSON_GetStringValue(nameNode) : "";
+
+        cJSON* descNode = cJSON_GetObjectItem(obj, "desc");
+        t.desc = descNode ? cJSON_GetStringValue(descNode) : "";
+
+        cJSON* typeNode = cJSON_GetObjectItem(obj, "type");
+        t.type = parseTalismanType(typeNode ? cJSON_GetStringValue(typeNode) : "attack");
+
+        cJSON* valNode = cJSON_GetObjectItem(obj, "value");
+        t.value = valNode ? static_cast<int>(cJSON_GetNumberValue(valNode)) : 0;
+
+        cJSON* elemNode = cJSON_GetObjectItem(obj, "element");
+        t.element = parseElement(elemNode ? cJSON_GetStringValue(elemNode) : "jin");
+
+        t.quantity = 1;
+
+        if (!t.id.empty()) {
+            mTalismanMap[t.id] = t;
+        }
+    }
+
+    JsonLoader::freeJson(root);
+    return true;
+}
+
+// ==================== 门派加载 ====================
+
+bool DataManager::loadSects(const char* path)
+{
+    cJSON* root = JsonLoader::loadJsonFile(path);
+    if (root == nullptr) return false;
+
+    cJSON* sectsArr = cJSON_GetObjectItem(root, "sects");
+    if (sectsArr == nullptr) {
+        JsonLoader::freeJson(root);
+        return false;
+    }
+
+    int count = cJSON_GetArraySize(sectsArr);
+    for (int i = 0; i < count; ++i) {
+        cJSON* obj = cJSON_GetArrayItem(sectsArr, i);
+        if (obj == nullptr) continue;
+
+        SectDef sd;
+
+        cJSON* idNode = cJSON_GetObjectItem(obj, "id");
+        sd.id = idNode ? cJSON_GetStringValue(idNode) : "";
+
+        cJSON* nameNode = cJSON_GetObjectItem(obj, "name");
+        sd.name = nameNode ? cJSON_GetStringValue(nameNode) : "";
+
+        cJSON* descNode = cJSON_GetObjectItem(obj, "desc");
+        sd.desc = descNode ? cJSON_GetStringValue(descNode) : "";
+
+        cJSON* bonusAtk = cJSON_GetObjectItem(obj, "bonusAtk");
+        sd.bonusAtk = bonusAtk ? static_cast<int>(cJSON_GetNumberValue(bonusAtk)) : 0;
+
+        cJSON* bonusDef = cJSON_GetObjectItem(obj, "bonusDef");
+        sd.bonusDef = bonusDef ? static_cast<int>(cJSON_GetNumberValue(bonusDef)) : 0;
+
+        cJSON* bonusHP = cJSON_GetObjectItem(obj, "bonusHP");
+        sd.bonusHP = bonusHP ? static_cast<int>(cJSON_GetNumberValue(bonusHP)) : 0;
+
+        cJSON* bonusSpeed = cJSON_GetObjectItem(obj, "bonusSpeed");
+        sd.bonusSpeed = bonusSpeed ? static_cast<int>(cJSON_GetNumberValue(bonusSpeed)) : 0;
+
+        cJSON* bonusSP = cJSON_GetObjectItem(obj, "bonusSP");
+        sd.bonusSP = bonusSP ? static_cast<int>(cJSON_GetNumberValue(bonusSP)) : 0;
+
+        // NPC列表
+        cJSON* npcsArr = cJSON_GetObjectItem(obj, "npcs");
+        if (npcsArr != nullptr) {
+            int npcCount = cJSON_GetArraySize(npcsArr);
+            for (int j = 0; j < npcCount; ++j) {
+                cJSON* npcObj = cJSON_GetArrayItem(npcsArr, j);
+                if (npcObj == nullptr) continue;
+
+                NPCInfo npc;
+                cJSON* nName = cJSON_GetObjectItem(npcObj, "name");
+                npc.name = nName ? cJSON_GetStringValue(nName) : "";
+
+                cJSON* nTitle = cJSON_GetObjectItem(npcObj, "title");
+                npc.title = nTitle ? cJSON_GetStringValue(nTitle) : "";
+
+                cJSON* nGreet = cJSON_GetObjectItem(npcObj, "greeting");
+                npc.greeting = nGreet ? cJSON_GetStringValue(nGreet) : "";
+
+                sd.npcs.push_back(npc);
+            }
+        }
+
+        if (!sd.id.empty()) {
+            mSectMap[sd.id] = sd;
+            mSectIds.push_back(sd.id);
+        }
+    }
+
+    JsonLoader::freeJson(root);
+    return true;
+}
+
 // ==================== 查询接口 ====================
 
 const Skill* DataManager::getSkill(const std::string& id) const
@@ -482,4 +668,58 @@ std::vector<Item> DataManager::createStartingInventory() const
         }
     }
     return result;
+}
+
+// ==================== 本命法宝查询 ====================
+
+const LifeboundTreasure* DataManager::getLifeboundTreasure(const std::string& id) const
+{
+    auto it = mLifeboundMap.find(id);
+    return (it != mLifeboundMap.end()) ? &it->second : nullptr;
+}
+
+LifeboundTreasure DataManager::createLifeboundTreasure(const std::string& id) const
+{
+    auto it = mLifeboundMap.find(id);
+    if (it != mLifeboundMap.end()) {
+        LifeboundTreasure lt = it->second;
+        lt.level = 1;
+        return lt;
+    }
+    LifeboundTreasure empty;
+    empty.id = id;
+    empty.name = "未知法宝";
+    empty.desc = "未找到此法宝的数据";
+    return empty;
+}
+
+// ==================== 符箓查询 ====================
+
+const Talisman* DataManager::getTalisman(const std::string& id) const
+{
+    auto it = mTalismanMap.find(id);
+    return (it != mTalismanMap.end()) ? &it->second : nullptr;
+}
+
+Talisman DataManager::createTalisman(const std::string& id) const
+{
+    auto it = mTalismanMap.find(id);
+    if (it != mTalismanMap.end()) {
+        Talisman t = it->second;
+        t.quantity = 1;
+        return t;
+    }
+    Talisman empty;
+    empty.id = id;
+    empty.name = "未知符箓";
+    empty.desc = "未找到此符箓的数据";
+    return empty;
+}
+
+// ==================== 门派查询 ====================
+
+const SectDef* DataManager::getSect(const std::string& id) const
+{
+    auto it = mSectMap.find(id);
+    return (it != mSectMap.end()) ? &it->second : nullptr;
 }

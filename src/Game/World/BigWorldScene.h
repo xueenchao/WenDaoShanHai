@@ -78,6 +78,7 @@ private:
     std::vector<EncounterMarker> mEncounters;
     float mEncounterSpawnTimer = 0.0f;
     bool mTransitionToCombat = false;
+    bool mTransitionToSect = false;
 
     // 叠加界面状态
     bool mInventoryOpen = false;
@@ -98,6 +99,7 @@ private:
     class UILabel* mCharStatsLabel = nullptr;
     class UILabel* mCharEquipLabel = nullptr;
     class UILabel* mCharSkillsLabel = nullptr;
+    class UILabel* mCharLifeboundLabel = nullptr;
 };
 
 #endif // BIGWORLDSCENE_H

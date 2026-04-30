@@ -1,0 +1,64 @@
+{
+  "sects": [
+    {
+      "id": "jianzong",
+      "name": "剑宗",
+      "desc": "以剑入道，追求极致攻击与速度。剑宗弟子信奉一剑破万法，不假外物。",
+      "bonusAtk": 5,
+      "bonusDef": 0,
+      "bonusHP": 0,
+      "bonusSpeed": 3,
+      "bonusSP": 0,
+      "npcs": [
+        { "name": "剑无尘", "title": "掌门", "greeting": "剑道万千，唯快不破。你既入剑宗，当知剑心即道心。" },
+        { "name": "剑灵儿", "title": "执事", "greeting": "你的剑，还不够快。每日挥剑万次，方见真章。" },
+        { "name": "剑十三", "title": "传功长老", "greeting": "欲学剑，先学心。心不正则剑不正。" }
+      ]
+    },
+    {
+      "id": "danzong",
+      "name": "丹宗",
+      "desc": "炼丹制药，济世度人。丹宗弟子以丹道入仙途，内外兼修。",
+      "bonusAtk": 0,
+      "bonusDef": 3,
+      "bonusHP": 30,
+      "bonusSpeed": 0,
+      "bonusSP": 1,
+      "npcs": [
+        { "name": "药道人", "title": "掌门", "greeting": "一炉丹火，可炼乾坤。丹道即人道，急不得。" },
+        { "name": "药童", "title": "弟子", "greeting": "师傅说我还需百年修行……你要买丹药吗？" },
+        { "name": "百草仙", "title": "药园长老", "greeting": "灵草有灵，切勿践踏。这片药园是我毕生心血。" }
+      ]
+    },
+    {
+      "id": "fuzong",
+      "name": "符宗",
+      "desc": "符箓之道，一笔定乾坤。符宗弟子以符文沟通天地，借天地之力为己用。",
+      "bonusAtk": 3,
+      "bonusDef": 0,
+      "bonusHP": 0,
+      "bonusSpeed": 1,
+      "bonusSP": 2,
+      "npcs": [
+        { "name": "天符子", "title": "掌门", "greeting": "一笔落下，鬼神皆惊。符道无穷，汝且慢慢参悟。" },
+        { "name": "符灵儿", "title": "符阁弟子", "greeting": "这张符，可值千金。不过看你是同门，给你打个折？" },
+        { "name": "墨先生", "title": "制符大师", "greeting": "好符需好墨，好墨需好材。你可带了上等朱砂？" }
+      ]
+    },
+    {
+      "id": "yulingzong",
+      "name": "御灵宗",
+      "desc": "御使山海异兽，与灵共生。御灵宗弟子相信万物有灵，驯之为友。",
+      "bonusAtk": 0,
+      "bonusDef": 2,
+      "bonusHP": 15,
+      "bonusSpeed": 2,
+      "bonusSP": 0,
+      "npcs": [
+        { "name": "灵兽真人", "title": "掌门", "greeting": "万灵皆有道，驯之即友，强之即敌。切记。" },
+        { "name": "小鳞", "title": "守山灵兽", "greeting": "（一只小麒麟歪头看着你，眼中似有星光）" },
+        { "name": "驭风子", "title": "巡山长老", "greeting": "今日山中太平无事。你想去看看新孵化的灵兽吗？" }
+      ]
+    }
+  ]
+}

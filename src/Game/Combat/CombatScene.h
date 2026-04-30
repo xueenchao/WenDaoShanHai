@@ -90,6 +90,8 @@ private:
     class UIProgressBar* mSPBar = nullptr;
 
     std::vector<class UIButton*> mSkillButtons;
+    std::vector<class UIButton*> mTalismanButtons;
+    class UILabel* mTalismanLabel = nullptr;
 
     float mViewportW, mViewportH;
 

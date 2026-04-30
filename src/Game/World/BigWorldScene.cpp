@@ -3,9 +3,10 @@
  */
 
 #include "BigWorldScene.h"
-#include "PlayerData.h"
-#include "CombatScene.h"
-#include "DataManager.h"
+#include "../Core/PlayerData.h"
+#include "../Combat/CombatScene.h"
+#include "../Menu/SectScene.h"
+#include "../Data/DataManager.h"
 #include "Core/EventHandler.h"
 #include "Core/Renderer.h"
 #include "Core/Font.h"
@@ -112,6 +113,12 @@ void BigWorldScene::onUpdate(float deltaTime)
         mTransitionToCombat = false;
     }
 
+    if (mTransitionToSect && mSceneManager) {
+        mSceneManager->pushScene(std::make_unique<SectScene>(
+            mEH, mFont, mVpW, mVpH, mPlayerData, mSceneManager));
+        mTransitionToSect = false;
+    }
+
     // 遭遇点补充
     int activeCount = 0;
     for (auto& e : mEncounters) {
@@ -200,6 +207,13 @@ void BigWorldScene::handleWorldInput(float deltaTime)
         if (mCharPanelOpen) {
             mInventoryOpen = false;
             updateCharPanelDisplay();
+        }
+    }
+    if (mEH.isKeyJustPressed(SDL_SCANCODE_T)) {
+        if (mPlayerData && !mPlayerData->sectId.empty()) {
+            mTransitionToSect = true;
+        } else {
+            LOG_INFO("尚未加入门派，无法回城");
         }
     }
 }
@@ -718,9 +732,9 @@ void BigWorldScene::buildCharPanelUI()
 
     auto panel = std::make_unique<UIPanel>();
     panel->mX = mVpW * 0.5f - 260.0f;
-    panel->mY = mVpH * 0.5f - 220.0f;
+    panel->mY = mVpH * 0.5f - 250.0f;
     panel->mWidth = 520.0f;
-    panel->mHeight = 440.0f;
+    panel->mHeight = 500.0f;
     panel->mBgR = 20; panel->mBgG = 20; panel->mBgB = 35; panel->mBgA = 240;
 
     // 标题
@@ -801,14 +815,14 @@ void BigWorldScene::buildCharPanelUI()
     // 技能
     auto skillsTitle = std::make_unique<UILabel>();
     skillsTitle->mX = 280.0f;
-    skillsTitle->mY = 150.0f;
+    skillsTitle->mY = 220.0f;
     skillsTitle->mText = "-- 技能 --";
     skillsTitle->mTextR = 200; skillsTitle->mTextG = 150; skillsTitle->mTextB = 60;
     panel->addChild(std::move(skillsTitle));
 
     auto skillsLabel = std::make_unique<UILabel>();
     skillsLabel->mX = 280.0f;
-    skillsLabel->mY = 180.0f;
+    skillsLabel->mY = 250.0f;
     skillsLabel->mText = "";
     skillsLabel->mTextR = 180; skillsLabel->mTextG = 180; skillsLabel->mTextB = 200;
     mCharSkillsLabel = skillsLabel.get();

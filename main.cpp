@@ -11,10 +11,13 @@
 #include <dbghelp.h>
 
 #include "Core/Core.h"
-#include "Game/PlayerData.h"
-#include "Game/DataManager.h"
-#include "Game/MainMenuScene.h"
-#include "Game/BigWorldScene.h"
+#include "Core/JsonLoader.h"
+#include "Game/Core/PlayerData.h"
+#include "Game/Core/LifeboundTreasure.h"
+#include "Game/Core/Talisman.h"
+#include "Game/Data/DataManager.h"
+#include "Game/Menu/MainMenuScene.h"
+#include "Game/World/BigWorldScene.h"
 
 // 全局对象
 static Window gWindow("问道·山海", 1280, 720);
@@ -34,6 +37,9 @@ bool onInit()
     srand(static_cast<unsigned int>(time(nullptr)));
 
     Log::getInstance().setLogToFile(true, "game.log");
+
+    // 初始化数据根目录（基于exe位置，确保从任意目录运行都能找到data/）
+    JsonLoader::initBasePath();
 
     // 加载所有游戏数据
     if (!DataManager::getInstance().loadAll()) {
@@ -75,6 +81,26 @@ bool onInit()
         if (sk) gPlayerData.skills.push_back(*sk);
     }
     gPlayerData.inventory = DataManager::getInstance().createStartingInventory();
+
+    // 测试数据：绑定本命法宝
+    auto* lt = DataManager::getInstance().getLifeboundTreasure("flying_sword_qingping");
+    if (lt) gPlayerData.bindLifeboundTreasure(*lt);
+
+    // 测试数据：添加符箓
+    const char* talismanIds[] = {"talisman_fire", "talisman_ice", "talisman_shield", "talisman_heal", "talisman_haste"};
+    for (auto& tid : talismanIds) {
+        Talisman t = DataManager::getInstance().createTalisman(tid);
+        gPlayerData.addTalisman(t);
+    }
+    // 装备5张符箓到出战槽
+    gPlayerData.equippedTalismans.clear();
+    for (int i = 0; i < 5 && i < static_cast<int>(gPlayerData.talismanInventory.size()); ++i) {
+        gPlayerData.equippedTalismans.push_back(gPlayerData.talismanInventory[i]);
+    }
+
+    // 测试数据：加入剑宗
+    gPlayerData.sectId = "jianzong";
+    gPlayerData.sectName = "剑宗";
 
     // 进入主菜单
     gSceneManager.pushScene(std::make_unique<MainMenuScene>(

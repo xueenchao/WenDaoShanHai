@@ -40,16 +40,17 @@ set(CORE_SOURCES
 
 # 游戏层源文件
 set(GAME_SOURCES
-    src/Game/GridMap.cpp
-    src/Game/CombatUnit.cpp
-    src/Game/Skill.cpp
-    src/Game/TurnManager.cpp
-    src/Game/CombatAI.cpp
-    src/Game/CombatScene.cpp
-    src/Game/MainMenuScene.cpp
-    src/Game/BigWorldScene.cpp
-    src/Game/WorldMap.cpp
-    src/Game/DataManager.cpp
+    src/Game/Core/Skill.cpp
+    src/Game/Data/DataManager.cpp
+    src/Game/World/WorldMap.cpp
+    src/Game/World/BigWorldScene.cpp
+    src/Game/Combat/GridMap.cpp
+    src/Game/Combat/CombatUnit.cpp
+    src/Game/Combat/TurnManager.cpp
+    src/Game/Combat/CombatAI.cpp
+    src/Game/Combat/CombatScene.cpp
+    src/Game/Menu/MainMenuScene.cpp
+    src/Game/Menu/SectScene.cpp
 )
 
 # 主程序

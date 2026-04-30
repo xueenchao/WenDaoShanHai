@@ -14,11 +14,32 @@
 
 class Skill;
 class Item;
+struct LifeboundTreasure;
+struct Talisman;
 enum class ItemType;
 enum class EquipSlot;
 enum class Element;
 enum class SkillAreaType;
 enum class Terrain;
+enum class TalismanType;
+
+struct NPCInfo {
+    std::string name;
+    std::string title;
+    std::string greeting;
+};
+
+struct SectDef {
+    std::string id;
+    std::string name;
+    std::string desc;
+    int bonusAtk = 0;
+    int bonusDef = 0;
+    int bonusHP = 0;
+    int bonusSpeed = 0;
+    int bonusSP = 0;
+    std::vector<NPCInfo> npcs;
+};
 
 // 地形定义（从JSON加载）
 struct TerrainDef {
@@ -119,6 +140,18 @@ public:
     // 配置
     const ConfigData& getConfig() const { return mConfig; }
 
+    // 本命法宝
+    const LifeboundTreasure* getLifeboundTreasure(const std::string& id) const;
+    LifeboundTreasure createLifeboundTreasure(const std::string& id) const;
+
+    // 符箓
+    const Talisman* getTalisman(const std::string& id) const;
+    Talisman createTalisman(const std::string& id) const;
+
+    // 门派
+    const SectDef* getSect(const std::string& id) const;
+    const std::vector<std::string>& getSectIds() const { return mSectIds; }
+
     // 起始数据
     const std::vector<std::string>& getStartingSkills() const { return mStartingSkills; }
     std::vector<Item> createStartingInventory() const;
@@ -141,6 +174,9 @@ private:
     bool loadEnemies(const char* path);
     bool loadConfig(const char* path);
     bool loadTerrains(const char* path);
+    bool loadLifeboundTreasures(const char* path);
+    bool loadTalismans(const char* path);
+    bool loadSects(const char* path);
 
     std::unordered_map<std::string, Skill> mSkillMap;
     std::unordered_map<std::string, Item> mItemMap;
@@ -150,6 +186,11 @@ private:
     std::vector<std::string> mStartingSkills;
     std::vector<std::pair<std::string, int>> mStartingInventory;  // id, quantity
     ConfigData mConfig;
+
+    std::unordered_map<std::string, LifeboundTreasure> mLifeboundMap;
+    std::unordered_map<std::string, Talisman> mTalismanMap;
+    std::unordered_map<std::string, SectDef> mSectMap;
+    std::vector<std::string> mSectIds;
 };
 
 #endif // DATAMANAGER_H

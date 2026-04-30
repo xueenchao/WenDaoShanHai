@@ -1,0 +1,42 @@
+[
+  {
+    "id": "flying_sword_qingping",
+    "name": "飞剑·青萍",
+    "desc": "青萍剑，剑宗传承之宝，以杀证道。",
+    "element": "jin",
+    "atkBonus": 15,
+    "defBonus": 0,
+    "hpBonus": 0,
+    "speedBonus": 3
+  },
+  {
+    "id": "alchemy_cauldron",
+    "name": "丹鼎·万象",
+    "desc": "上古丹鼎，炼化万物，固本培元。",
+    "element": "huo",
+    "atkBonus": 5,
+    "defBonus": 5,
+    "hpBonus": 30,
+    "speedBonus": 0
+  },
+  {
+    "id": "talisman_brush",
+    "name": "灵符笔·天书",
+    "desc": "天书符笔，一笔一画皆神通。",
+    "element": "mu",
+    "atkBonus": 8,
+    "defBonus": 3,
+    "hpBonus": 15,
+    "speedBonus": 2
+  },
+  {
+    "id": "beast_taming_bell",
+    "name": "御兽铃·山海",
+    "desc": "山海秘宝，铃声所至万兽臣服。",
+    "element": "tu",
+    "atkBonus": 10,
+    "defBonus": 8,
+    "hpBonus": 20,
+    "speedBonus": 1
+  }
+]

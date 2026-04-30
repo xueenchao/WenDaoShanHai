@@ -14,8 +14,14 @@ struct cJSON;
 class JsonLoader {
 public:
     /**
+     * 初始化数据根目录（基于exe位置自动探测）
+     * 必须在 loadAll() 之前调用
+     */
+    static void initBasePath();
+
+    /**
      * 从文件加载并解析JSON
-     * @param path 相对于可执行目录的文件路径
+     * @param path 相对于数据根目录的文件路径
      * @return cJSON根节点，失败返回nullptr（调用者负责cJSON_Delete）
      */
     static cJSON* loadJsonFile(const std::string& path);

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "talisman_fire",
+    "name": "烈火符",
+    "desc": "释放烈焰，造成真实伤害。",
+    "type": "attack",
+    "value": 40,
+    "element": "huo"
+  },
+  {
+    "id": "talisman_ice",
+    "name": "寒冰符",
+    "desc": "冻结敌人，造成冰霜伤害。",
+    "type": "attack",
+    "value": 25,
+    "element": "shui"
+  },
+  {
+    "id": "talisman_shield",
+    "name": "金刚符",
+    "desc": "获得一回合无敌状态。",
+    "type": "defense",
+    "value": 1
+  },
+  {
+    "id": "talisman_heal",
+    "name": "回春符",
+    "desc": "恢复生命值。",
+    "type": "support",
+    "value": 30
+  },
+  {
+    "id": "talisman_haste",
+    "name": "神行符",
+    "desc": "本回合额外获得移动力。",
+    "type": "support",
+    "value": 2
+  },
+  {
+    "id": "talisman_golem",
+    "name": "傀儡符",
+    "desc": "召唤土傀儡助战数回合。",
+    "type": "summon",
+    "value": 3,
+    "element": "tu"
+  }
+]

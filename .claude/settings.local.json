@@ -10,7 +10,11 @@
       "Bash(timeout 60 ./build/MyGame.exe)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(timeout 30 ./build/MyGame.exe)",
-      "Bash(echo \"===EXIT: $?===\")"
+      "Bash(echo \"===EXIT: $?===\")",
+      "mcp__plugin_everything-claude-code_sequential-thinking__sequentialthinking",
+      "Bash(./build/MyGame.exe)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(./MyGame.exe)"
     ]
   }
 }

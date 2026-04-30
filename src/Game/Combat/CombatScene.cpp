@@ -6,8 +6,9 @@
  */
 
 #include "CombatScene.h"
-#include "PlayerData.h"
-#include "DataManager.h"
+#include "../Core/PlayerData.h"
+#include "../Data/DataManager.h"
+#include "../Core/Talisman.h"
 #include "Core/Scene.h"       // SceneManager
 #include "Core/Renderer.h"
 #include "Core/EventHandler.h"
@@ -77,6 +78,7 @@ void CombatScene::onExit()
     mUnits.clear();
     mUnitPtrs.clear();
     mSkillButtons.clear();
+    mTalismanButtons.clear();
 }
 
 // ==================== 更新 ====================
@@ -684,6 +686,26 @@ void CombatScene::buildHUD()
         mUIManager.addElement(std::move(panel));
     }
 
+    // 符箓面板
+    {
+        auto panel = std::make_unique<UIPanel>();
+        panel->mX = mViewportW - 220.0f;
+        panel->mY = 510.0f;
+        panel->mWidth = 200.0f;
+        panel->mHeight = 170.0f;
+        panel->mBgR = 20; panel->mBgG = 20; panel->mBgB = 30; panel->mBgA = 210;
+
+        auto title = std::make_unique<UILabel>();
+        title->mX = 10.0f;
+        title->mY = 8.0f;
+        title->mText = "-- 符箓 (5/战) --";
+        title->mTextR = 200; title->mTextG = 180; title->mTextB = 60;
+        mTalismanLabel = title.get();
+        panel->addChild(std::move(title));
+
+        mUIManager.addElement(std::move(panel));
+    }
+
     // 底部操作栏
     {
         auto bar = std::make_unique<UIPanel>();
@@ -807,6 +829,7 @@ void CombatScene::updateHUD()
                 mSkillPanel->mChildren.pop_back();
             }
             mSkillButtons.clear();
+    mTalismanButtons.clear();
 
             mLastActiveUnitId = curUnitId;
             mLastPhase = mTurnManager.mPhase;
@@ -880,6 +903,68 @@ void CombatScene::updateHUD()
                 }
             }
             mLastSelectedSkill = mSelectedSkillIndex;
+        }
+    }
+
+    // 符箓按钮更新 - 仅在玩家回合且变化时重建
+    if (mTalismanLabel && mPlayerData) {
+        auto* talismanPanel = mTalismanLabel->mParent;
+        if (talismanPanel && mTurnManager.mPhase == CombatPhase::PlayerTurn && !mBattleEnded) {
+            int curTalismanCount = static_cast<int>(mPlayerData->equippedTalismans.size());
+            static int lastTalismanCount = -1;
+            if (curTalismanCount != lastTalismanCount) {
+                lastTalismanCount = curTalismanCount;
+                mUIManager.resetInteractionState();
+                // Remove old talisman buttons (children after the title)
+                while (talismanPanel->mChildren.size() > 1) {
+                    talismanPanel->mChildren.pop_back();
+                }
+                mTalismanButtons.clear();
+
+                float btnY = 35.0f;
+                for (int i = 0; i < curTalismanCount; ++i) {
+                    auto& talisman = mPlayerData->equippedTalismans[i];
+                    auto btn = std::make_unique<UIButton>();
+                    btn->mX = 10.0f;
+                    btn->mY = btnY;
+                    btn->mWidth = 180.0f;
+                    btn->mHeight = 22.0f;
+                    btn->mText = talisman.name + " " + std::string(talisman.typeName());
+                    btn->mNormalBgR = 50; btn->mNormalBgG = 40; btn->mNormalBgB = 30;
+                    btn->mHoverBgR = 80; btn->mHoverBgG = 60; btn->mHoverBgB = 40;
+                    int talismanIdx = i;
+                    btn->mOnClick = [this, talismanIdx]() {
+                        if (!mPlayerData || talismanIdx >= static_cast<int>(mPlayerData->equippedTalismans.size())) return;
+                        auto& t = mPlayerData->equippedTalismans[talismanIdx];
+                        CombatUnit* active = mTurnManager.getActiveUnit();
+                        if (!active || active->mTeam != 0) return;
+                        // 使用符箓
+                        if (t.type == TalismanType::Attack) {
+                            // 对最近的敌人造成真实伤害
+                            for (auto& u : mUnits) {
+                                if (u->mTeam != 0 && u->isAlive()) {
+                                    u->takeDamage(t.value);
+                                    LOG_INFO("使用 %s 对 %s 造成 %d 伤害！", t.name.c_str(), u->mName.c_str(), t.value);
+                                    if (!u->isAlive()) mGrid.setOccupier(u->mGridX, u->mGridY, 0);
+                                    break;
+                                }
+                            }
+                        } else if (t.type == TalismanType::Support && t.value > 10) {
+                            active->mHP += t.value;
+                            if (active->mHP > active->mMaxHP) active->mHP = active->mMaxHP;
+                            LOG_INFO("使用 %s 恢复 %d HP", t.name.c_str(), t.value);
+                        } else if (t.type == TalismanType::Support && t.value <= 5) {
+                            mTurnManager.mRemainingMoves += t.value;
+                            LOG_INFO("使用 %s 获得 %d 额外身法", t.name.c_str(), t.value);
+                        }
+                        mPlayerData->equippedTalismans.erase(mPlayerData->equippedTalismans.begin() + talismanIdx);
+                        updateHUD();
+                    };
+                    mTalismanButtons.push_back(btn.get());
+                    talismanPanel->addChild(std::move(btn));
+                    btnY += 25.0f;
+                }
+            }
         }
     }
 }

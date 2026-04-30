@@ -10,6 +10,8 @@
 
 #include "Skill.h"
 #include "Item.h"
+#include "LifeboundTreasure.h"
+#include "Talisman.h"
 #include <string>
 #include <vector>
 
@@ -37,6 +39,19 @@ struct PlayerData {
     Item* weapon = nullptr;
     Item* armor = nullptr;
     Item* accessory = nullptr;
+
+    // 本命法宝（唯一，终身绑定）
+    LifeboundTreasure* lifeboundTreasure = nullptr;
+
+    // 符箓
+    std::vector<Talisman> talismanInventory;
+    static constexpr int MAX_TALISMANS = 20;
+    std::vector<Talisman> equippedTalismans;
+    static constexpr int MAX_EQUIPPED_TALISMANS = 5;
+
+    // 门派
+    std::string sectId;
+    std::string sectName;
 
     int getEffectiveAttack() const
     {
@@ -131,6 +146,43 @@ struct PlayerData {
     {
         spiritPower += amount;
         if (spiritPower > maxSpiritPower) spiritPower = maxSpiritPower;
+    }
+
+    int getEffectiveSpeed() const
+    {
+        int spd = speed;
+        if (lifeboundTreasure) spd += lifeboundTreasure->getScaledSpeed();
+        return spd;
+    }
+
+    bool bindLifeboundTreasure(const LifeboundTreasure& lt)
+    {
+        if (lifeboundTreasure) return false; // 已绑定，不可更换
+        lifeboundTreasure = new LifeboundTreasure(lt);
+        lifeboundTreasure->level = 1;
+        return true;
+    }
+
+    bool addTalisman(const Talisman& t)
+    {
+        for (auto& invT : talismanInventory) {
+            if (invT.id == t.id && invT.quantity < 99) {
+                invT.quantity += t.quantity;
+                return true;
+            }
+        }
+        if (static_cast<int>(talismanInventory.size()) >= MAX_TALISMANS) {
+            return false;
+        }
+        talismanInventory.push_back(t);
+        return true;
+    }
+
+    void removeTalisman(int index)
+    {
+        if (index >= 0 && index < static_cast<int>(talismanInventory.size())) {
+            talismanInventory.erase(talismanInventory.begin() + index);
+        }
     }
 };
 

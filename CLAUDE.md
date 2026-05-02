@@ -25,7 +25,9 @@ cd build && ./MyGame.exe
 
 No test suite exists yet. No linter is configured.
 
-**Build environment note**: `CMakePresets.json` hardcodes Scoop-install paths for vcpkg (`C:/Scoop/apps/vcpkg/current/`) and MinGW (`C:/Scoop/apps/mingw-winlibs/current/`). If building on a different machine, update these paths or override via CMake cache variables.
+**Build environment note**: `CMakePresets.json` uses `$env{VCPKG_ROOT}` and `$env{MINGW_HOME}` to locate vcpkg and MinGW. Set these environment variables on each machine, e.g.:
+- `VCPKG_ROOT` = `C:/Scoop/apps/vcpkg/current` (or wherever vcpkg lives)
+- `MINGW_HOME` = `C:/Scoop/apps/mingw-winlibs/current` (or wherever MinGW lives)
 
 ## Tech Stack
 

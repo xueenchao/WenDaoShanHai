@@ -7,14 +7,14 @@
       "generator": "MinGW Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "C:/Scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
         "VCPKG_HOST_TRIPLET": "x64-mingw-dynamic",
         "VCPKG_APPLOCAL_DEPS": "ON",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_MAKE_PROGRAM": "C:/Scoop/apps/mingw/current/bin/mingw32-make.exe",
-        "CMAKE_C_COMPILER": "C:/Scoop/apps/mingw/current/bin/gcc.exe",
-        "CMAKE_CXX_COMPILER": "C:/Scoop/apps/mingw/current/bin/g++.exe"
+        "CMAKE_MAKE_PROGRAM": "mingw32-make.exe",
+        "CMAKE_C_COMPILER": "gcc.exe",
+        "CMAKE_CXX_COMPILER": "g++.exe"
       }
     }
   ],

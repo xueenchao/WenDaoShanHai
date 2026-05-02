@@ -18,6 +18,9 @@
 #include <SDL3_mixer/SDL_mixer.h>
 #include <string>
 #include <unordered_map>
+#include <memory>
+
+class BaseAudio;
 
 class Audio {
 public:
@@ -63,7 +66,7 @@ public:
     // ==================== 音频文件加载与卸载 ====================
 
     /**
-     * 从文件加载音频数据，并指定一个名称用于后续引用
+     * 从文件加载音频数据，并指定一个名称用于后续引用（使用工厂模式）
      * 支持的格式取决于 SDL3_mixer 配置，通常包括 WAV、OGG、MP3、FLAC 等
      * @param name     音频名称（用于后续播放时引用）
      * @param filePath 音频文件路径
@@ -74,7 +77,7 @@ public:
     bool loadAudio(const std::string& name, const std::string& filePath, bool predecode = true);
 
     /**
-     * 从内存数据加载音频
+     * 从内存数据加载音频（使用工厂模式）
      * @param name     音频名称
      * @param data     音频数据的内存指针
      * @param dataSize 数据大小（字节）
@@ -94,6 +97,22 @@ public:
      * 卸载所有已加载的音频数据
      */
     void unloadAllAudio();
+
+    // ==================== 获取音频对象 ====================
+
+    /**
+     * 获取音频对象指针（工厂模式版本）
+     * @param name 音频名称
+     * @return BaseAudio 指针，未找到返回 nullptr
+     */
+    BaseAudio* getAudio(const std::string& name) const;
+
+    /**
+     * 获取音频对象指针（向后兼容版本）
+     * @param name 音频名称
+     * @return MIX_Audio 指针，未找到返回 nullptr
+     */
+    MIX_Audio* getRawAudio(const std::string& name) const;
 
     // ==================== 音频播放控制 ====================
 
@@ -176,15 +195,14 @@ private:
     /**
      * 内部方法：查找已加载的音频数据
      * @param name 音频名称
-     * @return MIX_Audio 指针，未找到返回 nullptr
+     * @return BaseAudio 指针，未找到返回 nullptr
      */
-    MIX_Audio* findAudio(const std::string& name) const;
+    BaseAudio* findAudio(const std::string& name) const;
 
     MIX_Mixer* mMixer;    // SDL3_mixer 混音器指针
 
-    // 音频数据存储表：名称 → MIX_Audio 指针
-    // 使用 unordered_map 实现按名称快速查找
-    std::unordered_map<std::string, MIX_Audio*> mAudioMap;
+    // 音频数据存储表：名称 → 智能指针
+    std::unordered_map<std::string, std::unique_ptr<BaseAudio>> mAudioMap;
 
     int mFrequency;       // 采样率
     int mChannels;        // 声道数

@@ -10,11 +10,10 @@
 #include <windows.h>
 #include <dbghelp.h>
 
+#include <memory>
 #include "Core/Core.h"
 #include "Core/JsonLoader.h"
 #include "Game/Core/PlayerData.h"
-#include "Game/Core/LifeboundTreasure.h"
-#include "Game/Core/Talisman.h"
 #include "Game/Data/DataManager.h"
 #include "Game/Menu/MainMenuScene.h"
 #include "Game/World/BigWorldScene.h"
@@ -25,7 +24,7 @@ static Renderer gRenderer(gWindow);
 static EventHandler gEventHandler;
 static GameLoop gGameLoop(gEventHandler, 60);
 static SceneManager gSceneManager(gEventHandler);
-static Font* gFont = nullptr;
+static std::unique_ptr<Font> gFont;
 
 // 玩家持久数据
 static PlayerData gPlayerData;
@@ -63,7 +62,7 @@ bool onInit()
         return false;
     }
 
-    gFont = new Font();
+    gFont = std::make_unique<Font>();
     if (!cfg.fontPrimary.empty() && gFont->load(cfg.fontPrimary.c_str(), cfg.fontSize)) {
         // 加载成功
     } else if (!cfg.fontFallback.empty() && gFont->load(cfg.fontFallback.c_str(), cfg.fontSize)) {
@@ -104,7 +103,7 @@ bool onInit()
 
     // 进入主菜单
     gSceneManager.pushScene(std::make_unique<MainMenuScene>(
-        gEventHandler, gFont, cfg.viewportW, cfg.viewportH));
+        gEventHandler, gFont.get(), cfg.viewportW, cfg.viewportH));
 
     LOG_INFO("===== 问道·山海 =====");
 
@@ -131,7 +130,7 @@ void onUpdate(float deltaTime)
         if (start) {
             const auto& cfg = DataManager::getInstance().getConfig();
             gSceneManager.switchScene(std::make_unique<BigWorldScene>(
-                gEventHandler, gFont, cfg.viewportW, cfg.viewportH,
+                gEventHandler, gFont.get(), cfg.viewportW, cfg.viewportH,
                 &gPlayerData, &gSceneManager));
         }
         if (quit) {
@@ -150,8 +149,7 @@ void onCleanup()
 {
     gSceneManager.onCleanup();
 
-    delete gFont;
-    gFont = nullptr;
+    gFont.reset();
 
     if (TTF_WasInit()) TTF_Quit();
     gRenderer.destroy();

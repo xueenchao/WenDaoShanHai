@@ -1,11 +1,13 @@
 /**
- * Audio.cpp - 音频管理类的实现
+ * Audio.cpp - 音频管理类的实现（使用工厂模式）
  *
  * 封装 SDL3_mixer 的三层模型（Mixer → Audio → Track）。
  */
 
 #include "Audio.h"
 #include "Log.h"
+#include "BaseAudio.h"
+#include "AudioFactory.h"
 
 // ==================== 构造与析构 ====================
 
@@ -44,7 +46,6 @@ bool Audio::init()
     spec.freq = mFrequency;         // 采样率
 
     // 创建混音器
-    // 传入 nullptr 表示自动打开默认音频设备
     mMixer = MIX_CreateMixer(&spec);
 
     if (mMixer == nullptr) {
@@ -94,17 +95,15 @@ bool Audio::loadAudio(const std::string& name, const std::string& filePath, bool
         unloadAudio(name);
     }
 
-    // 使用 SDL3_mixer 从文件加载音频数据
-    // predecode: true=立即全部解码到内存，false=流式解码（播放时按需读取）
-    MIX_Audio* audio = MIX_LoadAudio(mMixer, filePath.c_str(), predecode);
-
-    if (audio == nullptr) {
+    // 使用工厂从文件加载音频
+    auto audio = AudioFactory::createFromFile(mMixer, name, filePath, predecode);
+    if (!audio) {
         LOG_ERROR("loadAudio 失败 (%s): %s", filePath.c_str(), SDL_GetError());
         return false;
     }
 
     // 存入音频表
-    mAudioMap[name] = audio;
+    mAudioMap[name] = std::move(audio);
     return true;
 }
 
@@ -125,22 +124,14 @@ bool Audio::loadAudioFromMemory(const std::string& name, const void* data, size_
         unloadAudio(name);
     }
 
-    // 从内存创建 IOStream，然后通过 IOStream 加载音频
-    SDL_IOStream* io = SDL_IOFromConstMem(data, dataSize);
-    if (io == nullptr) {
-        LOG_ERROR("loadAudioFromMemory 创建IOStream失败: %s", SDL_GetError());
-        return false;
-    }
-
-    // closeio = true 表示加载完成后自动关闭 IOStream
-    MIX_Audio* audio = MIX_LoadAudio_IO(mMixer, io, predecode, true);
-
-    if (audio == nullptr) {
+    // 使用工厂从内存加载音频
+    auto audio = AudioFactory::createFromMemory(mMixer, name, data, dataSize, predecode);
+    if (!audio) {
         LOG_ERROR("loadAudioFromMemory 加载失败: %s", SDL_GetError());
         return false;
     }
 
-    mAudioMap[name] = audio;
+    mAudioMap[name] = std::move(audio);
     return true;
 }
 
@@ -148,19 +139,30 @@ void Audio::unloadAudio(const std::string& name)
 {
     auto it = mAudioMap.find(name);
     if (it != mAudioMap.end()) {
-        // 销毁音频数据
-        MIX_DestroyAudio(it->second);
+        // 音频数据会被智能指针自动销毁
         mAudioMap.erase(it);
     }
 }
 
 void Audio::unloadAllAudio()
 {
-    // 逐个销毁所有音频数据
-    for (auto& pair : mAudioMap) {
-        MIX_DestroyAudio(pair.second);
-    }
     mAudioMap.clear();
+}
+
+// ==================== 获取音频对象 ====================
+
+BaseAudio* Audio::getAudio(const std::string& name) const
+{
+    return findAudio(name);
+}
+
+MIX_Audio* Audio::getRawAudio(const std::string& name) const
+{
+    BaseAudio* audio = findAudio(name);
+    if (audio) {
+        return audio->getRawAudio();
+    }
+    return nullptr;
 }
 
 // ==================== 音频播放控制 ====================
@@ -171,44 +173,33 @@ bool Audio::play(const std::string& name, int loops)
         return false;
     }
 
-    MIX_Audio* audio = findAudio(name);
+    BaseAudio* audio = findAudio(name);
     if (audio == nullptr) {
         LOG_ERROR("play 失败: 未找到音频 '%s'", name.c_str());
         return false;
     }
 
-    // 创建一条新的播放轨道
     MIX_Track* track = MIX_CreateTrack(mMixer);
     if (track == nullptr) {
         LOG_ERROR("play 创建Track失败: %s", SDL_GetError());
         return false;
     }
 
-    // 将音频数据绑定到轨道
-    if (!MIX_SetTrackAudio(track, audio)) {
+    if (!MIX_SetTrackAudio(track, audio->getRawAudio())) {
         LOG_ERROR("play 绑定Audio到Track失败: %s", SDL_GetError());
         MIX_DestroyTrack(track);
         return false;
     }
 
-    // 设置循环次数
-    // loops = 0 表示播放一次（不循环），-1 表示无限循环
     if (loops != 0) {
         MIX_SetTrackLoops(track, loops);
     }
 
-    // 开始播放
-    // options 传 0（空属性集）表示使用默认播放选项
     if (!MIX_PlayTrack(track, 0)) {
         LOG_ERROR("play 播放失败: %s", SDL_GetError());
         MIX_DestroyTrack(track);
         return false;
     }
-
-    // 注意：播放完成后轨道不会自动销毁
-    // SDL3_mixer 会在轨道播放结束后将其标记为完成状态
-    // 对于简单的使用场景，这不会造成问题
-    // 如果需要精细管理，可以维护一个 Track 列表并定期清理已完成的轨道
 
     return true;
 }
@@ -219,34 +210,28 @@ bool Audio::playWithTag(const std::string& name, const std::string& tag, int loo
         return false;
     }
 
-    MIX_Audio* audio = findAudio(name);
+    BaseAudio* audio = findAudio(name);
     if (audio == nullptr) {
         LOG_ERROR("playWithTag 失败: 未找到音频 '%s'", name.c_str());
         return false;
     }
 
-    // 创建轨道
     MIX_Track* track = MIX_CreateTrack(mMixer);
     if (track == nullptr) {
         return false;
     }
 
-    // 绑定音频数据
-    if (!MIX_SetTrackAudio(track, audio)) {
+    if (!MIX_SetTrackAudio(track, audio->getRawAudio())) {
         MIX_DestroyTrack(track);
         return false;
     }
 
-    // 给轨道打上标签
-    // 标签用于分组控制，例如 "bgm" 标签可以统一控制所有背景音乐
     MIX_TagTrack(track, tag.c_str());
 
-    // 设置循环次数
     if (loops != 0) {
         MIX_SetTrackLoops(track, loops);
     }
 
-    // 开始播放
     if (!MIX_PlayTrack(track, 0)) {
         MIX_DestroyTrack(track);
         return false;
@@ -262,11 +247,8 @@ void Audio::stopAll(int fadeOutMs)
     }
 
     if (fadeOutMs > 0) {
-        // 带淡出效果的停止
-        // fade_out_frames 参数实际上是毫秒数（根据 SDL3_mixer 文档）
         MIX_StopAllTracks(mMixer, fadeOutMs);
     } else {
-        // 立即停止
         MIX_StopAllTracks(mMixer, 0);
     }
 }
@@ -323,7 +305,6 @@ void Audio::setMasterVolume(float gain)
     if (mMixer == nullptr) {
         return;
     }
-    // gain: 0.0 = 静音, 1.0 = 正常, >1.0 = 放大
     MIX_SetMixerGain(mMixer, gain);
 }
 
@@ -345,11 +326,11 @@ void Audio::setTagVolume(const std::string& tag, float gain)
 
 // ==================== 内部方法 ====================
 
-MIX_Audio* Audio::findAudio(const std::string& name) const
+BaseAudio* Audio::findAudio(const std::string& name) const
 {
     auto it = mAudioMap.find(name);
     if (it != mAudioMap.end()) {
-        return it->second;
+        return it->second.get();
     }
     return nullptr;
 }

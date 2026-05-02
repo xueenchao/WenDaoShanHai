@@ -3,10 +3,7 @@
  */
 
 #include "DataManager.h"
-#include "../Core/Skill.h"
-#include "../Core/Item.h"
-#include "../Core/LifeboundTreasure.h"
-#include "../Core/Talisman.h"
+#include "../Core/GameDataTypes.h"
 #include "../World/WorldMap.h"
 #include "Core/JsonLoader.h"
 #include "Core/Log.h"

@@ -16,6 +16,11 @@
 #ifndef CORE_H
 #define CORE_H
 
+// 工厂模式 - 基础类首先
+#include "BaseTexture.h"
+#include "BaseFont.h"
+#include "BaseAudio.h"
+
 #include "Window.h"
 #include "Renderer.h"
 #include "Texture.h"
@@ -28,6 +33,26 @@
 #include "CollisionSystem.h"
 #include "Camera2D.h"
 #include "Log.h"
+
+// 工厂模式 - 纹理相关
+#include "FileTexture.h"
+#include "MemoryTexture.h"
+#include "BlankTexture.h"
+#include "SurfaceTexture.h"
+#include "TextureFactory.h"
+
+// 工厂模式 - 字体相关
+#include "TrueTypeFont.h"
+#include "MemoryFont.h"
+#include "FontFactory.h"
+
+// 工厂模式 - 音频相关
+#include "FileAudio.h"
+#include "MemoryAudio.h"
+#include "AudioFactory.h"
+
+// 工厂模式 - 游戏对象相关
+#include "GameObjectFactory.h"
 
 // UI系统
 #include "UI/UIElement.h"

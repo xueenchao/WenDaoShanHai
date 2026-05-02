@@ -8,7 +8,6 @@
 #include "CombatScene.h"
 #include "../Core/PlayerData.h"
 #include "../Data/DataManager.h"
-#include "../Core/Talisman.h"
 #include "Core/Scene.h"       // SceneManager
 #include "Core/Renderer.h"
 #include "Core/EventHandler.h"

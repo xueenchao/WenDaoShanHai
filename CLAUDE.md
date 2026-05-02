@@ -64,15 +64,15 @@ A Windows SEH crash handler (`SetUnhandledExceptionFilter`) logs exception type 
 main.cpp (application layer — owns global objects, callbacks wired to GameLoop)
   │
 ├─ Game layer (src/Game/) — scenes, combat, world, player state
-│   ├─ Core/ — pure data structs: PlayerData, Skill, Item, LifeboundTreasure, Talisman
+│   ├─ Core/ — pure data structs: PlayerData + GameDataTypes (Skill/Item/LifeboundTreasure/Talisman)
 │   ├─ Data/ — DataManager singleton, loads all JSON at startup, O(1) lookup by ID
 │   ├─ Combat/ — GridMap, CombatUnit, TurnManager, CombatAI, CombatScene
 │   ├─ World/ — WorldMap (40×30 terrain grid), BigWorldScene (exploration)
 │   └─ Menu/ — MainMenuScene, SectScene (门派)
 │
 ├─ Core modules (src/Core/) — engine subsystems wrapping SDL3
-│   ├─ Window ←─ Renderer ←─ Texture
-│   │                 ↑          Font renders to SDL_Texture
+│   ├─ Window ←─ Renderer ←─ TextureFactory → BaseTexture → Texture (compat wrapper)
+│   │                 ↑          FontFactory → BaseFont → Font (compat wrapper)
 │   ├─ Camera2D — world/screen coordinate transform, zoom, smooth follow
 │   ├─ CollisionSystem — AABB + spatial hash grid, layer-mask filtering
 │   ├─ Scene / SceneManager — stack-based scene lifecycle (push/pop/switch)
@@ -93,7 +93,29 @@ GameLoop (loop controller — calls OnInit → pollEvents → OnUpdate → OnRen
 
 **Include paths**: CMake adds `src/` as an include directory. Files in `src/Core/` include each other directly (`"Renderer.h"`). Files in Game subdirectories use `../` for cross-directory same-layer includes (e.g. `#include "../Core/PlayerData.h"`) or `Core/` prefixes for Core layer. The umbrella header `Core/Core.h` includes all Core layer headers.
 
-**Resource ownership**: Each class owns its SDL pointer via RAII. Copy is deleted; move is supported. Destruction order: Renderer before Window, Font before TTF_Quit, UIManager before Font.
+**Resource ownership**: Each class owns its SDL pointer via RAII. Copy is deleted; move is supported. Destruction order: Renderer before Window, Font before TTF_Quit, UIManager before Font. `gFont` in main.cpp is `std::unique_ptr<Font>` (factory-created).
+
+### Factory Pattern Architecture
+
+Resource creation uses a **Simple Factory** pattern with three layers per resource type:
+
+```
+Factory (static methods) → Concrete impl (owns SDL pointer) → Abstract base (interface)
+```
+
+| Resource | Base Class | Concrete Impls | Factory | Wrapper (compat) |
+|----------|-----------|----------------|---------|-------------------|
+| Texture | `BaseTexture` | `FileTexture`, `MemoryTexture`, `BlankTexture`, `SurfaceTexture` | `TextureFactory` | `Texture` |
+| Font | `BaseFont` | `TrueTypeFont`, `MemoryFont` | `FontFactory` | `Font` |
+| Audio | `BaseAudio` | `FileAudio`, `MemoryAudio` | `AudioFactory` | `Audio` |
+
+**Factory classes** (`TextureFactory`, `FontFactory`, `AudioFactory`) are non-instantiable — all methods are `static`, constructors `= delete`. They return `std::unique_ptr<Base*>` or type-specific `std::unique_ptr<Concrete*>`.
+
+**Compatibility wrappers** (`Texture`, `Font`, `Audio`) keep the old API surface unchanged for Game/UI layer consumers. Internally they hold `std::unique_ptr<Base*>` and delegate all operations. Creating new resources should use the factories, not direct `std::make_unique<Concrete>()`.
+
+**`GameObjectFactory`** is a separate **Registered Factory** (singleton) for runtime JSON-driven object creation. Register types via `REGISTER_GAMEOBJECT` macro or `registerType()` method. Not yet integrated into any scene.
+
+**`ResourceManager`** caches `BaseTexture` (not the old `Texture` wrapper) via `ResourceCache<BaseTexture>`. Texture loading uses `TextureFactory` directly. Font caching still uses the `Font` wrapper which internally uses `FontFactory`.
 
 ### Core Module API Summary
 
@@ -101,9 +123,9 @@ GameLoop (loop controller — calls OnInit → pollEvents → OnUpdate → OnRen
 |--------|-------|-------------|
 | `Window` | `SDL_Window*` | create()/destroy() lifecycle; caches title/size |
 | `Renderer` | `SDL_Renderer*` | Bound to Window ref; drawTexture overloads (position/scale/clip/rotate); logical size with letterbox; fillRect/drawRect/drawLine |
-| `Texture` | `SDL_Texture*` | loadFromFile/loadFromMemory/createBlank/createFromSurface; color mod/alpha/blend |
-| `Audio` | `MIX_Mixer*` + `MIX_Audio*` map | Name-based audio lookup; playWithTag for group control; master + per-tag gain |
-| `Font` | `TTF_Font*` | Three quality levels (Solid/Shaded/Blended); renderText returns `SDL_Texture*` (caller must destroy); measureText for layout |
+| `Texture` | `BaseTexture*` (factory) | Compatibility wrapper: delegates to BaseTexture via unique_ptr. All creation goes through TextureFactory. getRawTexture()/getWidth()/getHeight()/color mod/alpha/blend |
+| `Audio` | `MIX_Mixer*` + `BaseAudio*` map | Compatibility wrapper: uses AudioFactory internally. mAudioMap stores `unique_ptr<BaseAudio>`. Name-based lookup; playWithTag for group control; master + per-tag gain |
+| `Font` | `BaseFont*` (factory) | Compatibility wrapper: delegates to BaseFont via unique_ptr. Uses FontFactory internally. Three quality levels (Solid/Shaded/Blended); renderText returns `SDL_Texture*` (caller must destroy); measureText for layout |
 | `EventHandler` | Keyboard/mouse state maps | Dual-frame state (current + previous) for isKeyJustPressed/isKeyJustReleased; must call update() each frame end |
 | `GameLoop` | Callback functions | std::function callbacks; deltaTime capped at 0.1s; FPS tracking |
 | `JsonLoader` | cJSON | `initBasePath()` probes exe/parent for `data/` (call once before loading); `loadJsonFile(path)` tries exe-relative then CWD-relative; `freeJson()` wraps cJSON_Delete |
@@ -138,23 +160,16 @@ All scenes except `MainMenuScene` receive `PlayerData*` and `SceneManager*` in t
 
 ### Game Layer Data Structures
 
-**PlayerData** (`src/Game/Core/PlayerData.h`): Plain struct — no destructor, no .cpp.
-- **Core stats**: name, level, xp, hp/maxHP, attack, defense, speed, spiritPower/maxSpiritPower, movementPoints/maxMovementPoints, element (Element enum)
-- **Skills**: `std::vector<Skill> skills`
-- **Inventory**: `std::vector<Item> inventory` (max 20)
-- **Equipment slots**: `Item* weapon/armor/accessory` — raw owning pointers, allocated with `new`, freed via `unequipSlot()` or re-equip
-- **Lifebound treasure**: `LifeboundTreasure* lifeboundTreasure` — unique, non-removable, bound once via `bindLifeboundTreasure()`
-- **Talismans**: `std::vector<Talisman> talismanInventory` (max 20), `std::vector<Talisman> equippedTalismans` (max 5 per battle)
-- **Sect**: `std::string sectId`, `std::string sectName`
-- **Key methods**: `getEffectiveAttack()`, `getEffectiveDefense()`, `getEffectiveMaxHP()`, `getEffectiveSpeed()`, `bindLifeboundTreasure()`, `addTalisman()`, `removeTalisman()`, `addItem()`, `removeItem()`, `equipItem()`, `unequipSlot()`, `heal()`, `restoreSP()`
+All core game types are defined in two headers under `src/Game/Core/`:
 
-**Item** (`src/Game/Core/Item.h`): `ItemType` enum (Consumable/Equipment/Material/Key), `EquipSlot` enum (Weapon/Armor/Accessory). Fields: id, name, desc, type, quantity, maxStack, equipSlot, atkBonus/defBonus/hpBonus, healHP/healSP.
+**`GameDataTypes.h`** — the 4 foundational data structs + all shared enums:
+- `Element` enum (五行: Jin/Mu/Shui/Huo/Tu), `SkillAreaType`, `ItemType`, `EquipSlot`, `TalentPath`, `TalismanType`
+- `Skill`: mName, mDescription, mSpiritCost, mRange, mAreaType (Single/Cross/Square), mBaseDamage, mCooldown, mCurrentCooldown, mElementId. `isReady()` checks cooldown.
+- `Item`: id, name, desc, type (Consumable/Equipment/Material/Key), quantity, maxStack, equipSlot (Weapon/Armor/Accessory), atkBonus/defBonus/hpBonus, healHP/healSP.
+- `LifeboundTreasure`: id, name, desc, element, level, maxLevel, atkBonus/defBonus/hpBonus/speedBonus, talentPath (ShaFa/ShouHu/XiaoYao). `getScaled*()` returns base + (level-1) × scaling. Bound once — `bindLifeboundTreasure()` returns false if already bound. Displayed in character panel.
+- `Talisman`: id, name, desc, type (Attack/Defense/Support/Summon), value, element, quantity. Used in CombatScene talisman panel. Consumed on use.
 
-**Skill** (`src/Game/Core/Skill.h`): Fields: mName, mDescription, mSpiritCost, mRange, mAreaType (Single/Cross/Square), mBaseDamage, mCooldown, mCurrentCooldown, mElementId. `isReady()` checks cooldown.
-
-**LifeboundTreasure** (`src/Game/Core/LifeboundTreasure.h`): id, name, desc, element, level, maxLevel, atkBonus/defBonus/hpBonus/speedBonus, talentPath (ShaFa/ShouHu/XiaoYao). `getScaled*()` methods return base + (level-1) × scaling. Bound once — `bindLifeboundTreasure()` returns false if already bound. Displayed in character panel.
-
-**Talisman** (`src/Game/Core/Talisman.h`): id, name, desc, type (Attack/Defense/Support/Summon), value, element, quantity. Used in CombatScene talisman panel — attack targets nearest enemy, support heals or grants movement. Consumed on use.
+**`PlayerData.h`** — includes `GameDataTypes.h`. Plain struct, no destructor, no .cpp.
 
 **SectDef / NPCInfo** (in `DataManager.h`): Sect data from `data/sects.json`. 4 sects (剑宗/丹宗/符宗/御灵宗), each with stat bonuses and 3 NPCs (name/title/greeting). `SectScene` renders NPC list + detail panel. NPC interaction is stubbed — clicking shows greeting only.
 

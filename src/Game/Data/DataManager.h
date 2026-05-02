@@ -12,16 +12,9 @@
 #include <vector>
 #include <unordered_map>
 
-class Skill;
-class Item;
-struct LifeboundTreasure;
-struct Talisman;
-enum class ItemType;
-enum class EquipSlot;
-enum class Element;
-enum class SkillAreaType;
+#include "../Core/GameDataTypes.h"
+
 enum class Terrain;
-enum class TalismanType;
 
 struct NPCInfo {
     std::string name;

@@ -8,10 +8,7 @@
 #ifndef PLAYERDATA_H
 #define PLAYERDATA_H
 
-#include "Skill.h"
-#include "Item.h"
-#include "LifeboundTreasure.h"
-#include "Talisman.h"
+#include "GameDataTypes.h"
 #include <string>
 #include <vector>
 

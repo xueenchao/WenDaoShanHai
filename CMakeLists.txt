@@ -29,6 +29,22 @@ set(CORE_SOURCES
     src/Core/Camera2D.cpp
     src/Core/Log.cpp
     src/Core/JsonLoader.cpp
+    # 纹理工厂相关
+    src/Core/FileTexture.cpp
+    src/Core/MemoryTexture.cpp
+    src/Core/BlankTexture.cpp
+    src/Core/SurfaceTexture.cpp
+    src/Core/TextureFactory.cpp
+    # 字体工厂相关
+    src/Core/TrueTypeFont.cpp
+    src/Core/MemoryFont.cpp
+    src/Core/FontFactory.cpp
+    # 音频工厂相关
+    src/Core/FileAudio.cpp
+    src/Core/MemoryAudio.cpp
+    src/Core/AudioFactory.cpp
+    # 游戏对象工厂相关
+    src/Core/GameObjectFactory.cpp
     # UI系统
     src/Core/UI/UIElement.cpp
     src/Core/UI/UIPanel.cpp
@@ -40,7 +56,6 @@ set(CORE_SOURCES
 
 # 游戏层源文件
 set(GAME_SOURCES
-    src/Game/Core/Skill.cpp
     src/Game/Data/DataManager.cpp
     src/Game/World/WorldMap.cpp
     src/Game/World/BigWorldScene.cpp

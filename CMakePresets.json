@@ -12,9 +12,9 @@
         "VCPKG_HOST_TRIPLET": "x64-mingw-dynamic",
         "VCPKG_APPLOCAL_DEPS": "ON",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_MAKE_PROGRAM": "C:/Scoop/apps/mingw-winlibs/current/bin/mingw32-make.exe",
-        "CMAKE_C_COMPILER": "C:/Scoop/apps/mingw-winlibs/current/bin/gcc.exe",
-        "CMAKE_CXX_COMPILER": "C:/Scoop/apps/mingw-winlibs/current/bin/g++.exe"
+        "CMAKE_MAKE_PROGRAM": "C:/Scoop/apps/mingw/current/bin/mingw32-make.exe",
+        "CMAKE_C_COMPILER": "C:/Scoop/apps/mingw/current/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/Scoop/apps/mingw/current/bin/g++.exe"
       }
     }
   ],

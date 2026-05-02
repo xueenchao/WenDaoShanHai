@@ -1,5 +1,5 @@
 /**
- * ResourceManager.cpp - 游戏资源管理器的实现
+ * ResourceManager.cpp - 游戏资源管理器的实现（使用工厂模式）
  */
 
 #include "ResourceManager.h"
@@ -7,6 +7,12 @@
 #include "Font.h"
 #include "Audio.h"
 #include "Log.h"
+#include "BaseTexture.h"
+#include "BaseFont.h"
+#include "BaseAudio.h"
+#include "TextureFactory.h"
+#include "FontFactory.h"
+#include "AudioFactory.h"
 #include <SDL3/SDL.h>
 
 // ==================== ResourceManager ====================
@@ -19,29 +25,91 @@ ResourceManager::ResourceManager(Renderer& renderer, Audio* audio)
 
 // ==================== 纹理资源 ====================
 
-Texture* ResourceManager::loadTexture(const std::string& key, const std::string& filePath)
+BaseTexture* ResourceManager::loadTexture(const std::string& key, const std::string& filePath)
 {
-    // 已存在则直接返回
     if (mTextureCache.has(key)) {
         LOG_DEBUG("纹理 '%s' 已缓存，跳过加载", key.c_str());
         return mTextureCache.get(key);
     }
 
-    auto texture = std::make_unique<Texture>();
-    if (!texture->loadFromFile(mRenderer, filePath)) {
+    auto texture = TextureFactory::createFromFile(mRenderer, filePath);
+    if (!texture) {
         LOG_ERROR("纹理 '%s' 加载失败: %s", key.c_str(), filePath.c_str());
         return nullptr;
     }
 
-    Texture* ptr = texture.get();
+    BaseTexture* ptr = texture.get();
     mTextureCache.add(key, std::move(texture));
     LOG_DEBUG("纹理 '%s' 加载成功", key.c_str());
     return ptr;
 }
 
-Texture* ResourceManager::getTexture(const std::string& key) const
+BaseTexture* ResourceManager::loadTextureFromMemory(const std::string& key, const void* data, size_t dataSize)
+{
+    if (mTextureCache.has(key)) {
+        LOG_DEBUG("纹理 '%s' 已缓存，跳过加载", key.c_str());
+        return mTextureCache.get(key);
+    }
+
+    auto texture = TextureFactory::createFromMemory(mRenderer, data, dataSize);
+    if (!texture) {
+        LOG_ERROR("纹理 '%s' 从内存加载失败", key.c_str());
+        return nullptr;
+    }
+
+    BaseTexture* ptr = texture.get();
+    mTextureCache.add(key, std::move(texture));
+    LOG_DEBUG("纹理 '%s' 从内存加载成功", key.c_str());
+    return ptr;
+}
+
+BaseTexture* ResourceManager::createTexture(const std::string& key, int width, int height,
+                                            SDL_TextureAccess access)
+{
+    if (mTextureCache.has(key)) {
+        LOG_DEBUG("纹理 '%s' 已缓存，跳过创建", key.c_str());
+        return mTextureCache.get(key);
+    }
+
+    auto texture = TextureFactory::createBlank(mRenderer, width, height, access);
+    if (!texture) {
+        LOG_ERROR("纹理 '%s' 创建失败", key.c_str());
+        return nullptr;
+    }
+
+    BaseTexture* ptr = texture.get();
+    mTextureCache.add(key, std::move(texture));
+    LOG_DEBUG("纹理 '%s' 创建成功", key.c_str());
+    return ptr;
+}
+
+BaseTexture* ResourceManager::createTextureFromSurface(const std::string& key, SDL_Surface* surface)
+{
+    if (mTextureCache.has(key)) {
+        LOG_DEBUG("纹理 '%s' 已缓存，跳过创建", key.c_str());
+        return mTextureCache.get(key);
+    }
+
+    auto texture = TextureFactory::createFromSurface(mRenderer, surface);
+    if (!texture) {
+        LOG_ERROR("纹理 '%s' 从Surface创建失败", key.c_str());
+        return nullptr;
+    }
+
+    BaseTexture* ptr = texture.get();
+    mTextureCache.add(key, std::move(texture));
+    LOG_DEBUG("纹理 '%s' 从Surface创建成功", key.c_str());
+    return ptr;
+}
+
+BaseTexture* ResourceManager::getTexture(const std::string& key) const
 {
     return mTextureCache.get(key);
+}
+
+Texture* ResourceManager::getLegacyTexture(const std::string& key) const
+{
+    return nullptr;  // 不再支持旧版纹理对象的返回
 }
 
 void ResourceManager::unloadTexture(const std::string& key)

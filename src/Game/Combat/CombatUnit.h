@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "../Core/Skill.h"
+#include "../Core/GameDataTypes.h"
 
 class CombatUnit {
 public:

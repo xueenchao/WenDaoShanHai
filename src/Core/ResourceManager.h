@@ -23,10 +23,13 @@
 #include <string>
 #include <unordered_map>
 
+#include <SDL3/SDL.h>
+
 class Renderer;
 class Audio;
 class Texture;
 class Font;
+class BaseTexture;
 
 // ==================== 通用资源缓存模板 ====================
 
@@ -128,19 +131,54 @@ public:
     // ==================== 纹理资源 ====================
 
     /**
-     * 加载纹理并缓存
+     * 加载纹理并缓存（使用工厂模式）
      * @param key      纹理名称
      * @param filePath 图片文件路径
      * @return 纹理指针，失败返回 nullptr
      */
-    Texture* loadTexture(const std::string& key, const std::string& filePath);
+    BaseTexture* loadTexture(const std::string& key, const std::string& filePath);
+
+    /**
+     * 加载纹理并缓存（使用工厂模式）
+     * @param key      纹理名称
+     * @param data     纹理数据指针
+     * @param dataSize 纹理数据大小
+     * @return 纹理指针，失败返回 nullptr
+     */
+    BaseTexture* loadTextureFromMemory(const std::string& key, const void* data, size_t dataSize);
+
+    /**
+     * 创建空白纹理并缓存（使用工厂模式）
+     * @param key      纹理名称
+     * @param width    纹理宽度
+     * @param height   纹理高度
+     * @param access   纹理访问模式
+     * @return 纹理指针，失败返回 nullptr
+     */
+    BaseTexture* createTexture(const std::string& key, int width, int height,
+                              SDL_TextureAccess access = SDL_TEXTUREACCESS_TARGET);
+
+    /**
+     * 从 Surface 创建纹理并缓存（使用工厂模式）
+     * @param key      纹理名称
+     * @param surface  源 Surface
+     * @return 纹理指针，失败返回 nullptr
+     */
+    BaseTexture* createTextureFromSurface(const std::string& key, SDL_Surface* surface);
 
     /**
      * 获取已缓存的纹理
      * @param key 纹理名称
      * @return 纹理指针，不存在返回 nullptr
      */
-    Texture* getTexture(const std::string& key) const;
+    BaseTexture* getTexture(const std::string& key) const;
+
+    /**
+     * 获取已缓存的纹理（类型安全版本）
+     * @param key 纹理名称
+     * @return 纹理指针，不存在返回 nullptr
+     */
+    Texture* getLegacyTexture(const std::string& key) const;
 
     /**
      * 卸载纹理
@@ -204,7 +242,7 @@ private:
     Renderer& mRenderer;
     Audio* mAudio;
 
-    ResourceCache<Texture> mTextureCache;
+    ResourceCache<BaseTexture> mTextureCache;  // 使用新的纹理类型
     ResourceCache<Font> mFontCache;
     // 音频资源由 Audio 模块内部管理，此处只记录 key 用于统一接口
 };
